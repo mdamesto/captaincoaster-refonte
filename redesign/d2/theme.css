@@ -1,0 +1,819 @@
+/* ============================================================================
+   DIRECTION 2 — CARNET DE CREDITS
+   Le site est une collection. Ce que les riders gardent, c'est leur log.
+
+   Le vocabulaire vient du papier des parcs — billetterie, plan de parc, tampon
+   de passeport, almanach — et non de l'éditorial générique. Règles tenues :
+   - le ticket perforé est le seul geste décoratif, tout le reste est nu
+   - un jeton de couleur par famille de coaster, jamais de couleur gratuite
+   - la progression se mesure en jauges de complétion, jamais en compteur
+   ========================================================================= */
+
+:root {
+  --paper: #ede9de;
+  --paper-2: #f6f3ea;
+  --paper-3: #e3ded1;
+
+  --ink: #1c2b26;
+  --ink-2: #4e5f58;
+  --ink-3: #8a9791;
+
+  --green: #2f6b4f;
+  --ticket: #c4362b;
+  --brass: #b08a3e;
+
+  --rule: #d3ccbb;
+  --rule-2: #b9b1a0;
+
+  /* Un jeton de couleur par famille de coaster — principe des univers
+     d'Efteling, transposé au type d'assise. */
+  --fam-sitdown: #6b7a52;
+  --fam-inverted: #3c6e8f;
+  --fam-spinning: #8a5a32;
+  --fam-suspended: #6b5b95;
+  --fam-floorless: #2f6b4f;
+  --fam-flying: #c4362b;
+  --fam-water: #2e7f93;
+  --fam-dim4: #9a4f7a;
+  --fam-standup: #7a6a3c;
+  --fam-moto: #4a4f66;
+  --fam-wing: #b0703e;
+  --fam-bobsled: #5c7d8a;
+  --fam-alpine: #557a4e;
+  --fam-pipeline: #8a4f4f;
+  --fam-unknown: #a8b0a9;
+
+  --shell: 1240px;
+  --gutter: clamp(18px, 5vw, 44px);
+
+  --ff-display: "Bricolage Grotesque", Georgia, serif;
+  --ff-body: "Inclusive Sans", system-ui, sans-serif;
+  --ff-mono: "Courier Prime", "Courier New", monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--ff-body);
+  font-size: 16px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* height:auto est obligatoire : les attributs width/height du HTML posent une
+   hauteur utilisee qui neutraliserait aspect-ratio. */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 2px solid var(--ticket);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  background: var(--ticket);
+  color: #fff;
+  padding: 10px 16px;
+  z-index: 100;
+}
+.skip:focus {
+  left: 8px;
+  top: 8px;
+}
+
+.wrap {
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ------------------------------------------------------------- typographie */
+
+h1,
+h2,
+h3 {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.06;
+  margin: 0;
+}
+h1 {
+  font-size: clamp(32px, 5.2vw, 58px);
+}
+h2 {
+  font-size: clamp(24px, 3.2vw, 36px);
+}
+h3 {
+  font-size: 19px;
+  letter-spacing: -0.015em;
+}
+p {
+  margin: 0 0 1em;
+}
+
+.serif {
+  font-family: var(--ff-display);
+}
+
+/* Petites capitales imprimées : l'étiquette de toute l'interface. */
+.cap {
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.cap-ink {
+  color: var(--ink-2);
+}
+.cap-ticket {
+  color: var(--ticket);
+}
+.cap-green {
+  color: var(--green);
+}
+
+.mono {
+  font-family: var(--ff-mono);
+}
+.muted {
+  color: var(--ink-2);
+}
+.dim {
+  color: var(--ink-3);
+}
+
+.lede {
+  font-size: clamp(17px, 2vw, 20px);
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+/* ------------------------------------------------------------------ chrome */
+
+.masthead {
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
+}
+
+.masthead-in {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 16px 0 14px;
+}
+
+.logo {
+  font-family: var(--ff-display);
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  flex: none;
+}
+.logo em {
+  font-style: normal;
+  color: var(--ticket);
+}
+
+.nav {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar {
+  display: none;
+}
+.nav a {
+  padding: 5px 11px;
+  font-size: 14.5px;
+  white-space: nowrap;
+  color: var(--ink-2);
+  border-radius: 2px;
+}
+.nav a:hover {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+.nav a[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--ticket);
+}
+
+.me {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+.me img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-2);
+}
+
+/* ---------------------------------------------------------------- boutons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  font-family: var(--ff-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.btn:hover {
+  background: transparent;
+  color: var(--ink);
+}
+.btn-ticket {
+  background: var(--ticket);
+  border-color: var(--ticket);
+  color: #fff;
+}
+.btn-ticket:hover {
+  background: transparent;
+  color: var(--ticket);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+}
+.btn-ghost:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn-sm {
+  height: 33px;
+  padding: 0 13px;
+  font-size: 11px;
+}
+
+/* ================================================== LE TICKET — signature */
+
+/* Chaque credit est un talon d'entrée numéroté : c'est l'objet que le rider
+   collectionne, et le seul endroit où la direction s'autorise du décor. */
+.ticket {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+}
+
+.ticket-body {
+  padding: 16px 18px;
+  min-width: 0;
+}
+
+.ticket-stub {
+  position: relative;
+  border-left: 2px dashed var(--rule-2);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  text-align: right;
+}
+
+/* Les encoches de perforation : deux disques de la couleur du fond de page. */
+.ticket-stub::before,
+.ticket-stub::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+}
+.ticket-stub::before {
+  top: -8px;
+}
+.ticket-stub::after {
+  bottom: -8px;
+}
+
+.ticket-serial {
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.ticket-score {
+  font-family: var(--ff-display);
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ticket);
+}
+
+.ticket-name {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.ticket-meta {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  margin-top: 3px;
+}
+
+/* Talon large avec photo, pour les entrées mises en avant. */
+.ticket-photo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* ------------------------------------------------------ jetons de famille */
+
+.fam {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.fam::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--fam-unknown);
+}
+.fam-sitdown::before { background: var(--fam-sitdown); }
+.fam-inverted::before { background: var(--fam-inverted); }
+.fam-spinning::before { background: var(--fam-spinning); }
+.fam-suspended::before { background: var(--fam-suspended); }
+.fam-floorless::before { background: var(--fam-floorless); }
+.fam-flying::before { background: var(--fam-flying); }
+.fam-water::before { background: var(--fam-water); }
+.fam-dim4::before { background: var(--fam-dim4); }
+.fam-standup::before { background: var(--fam-standup); }
+.fam-moto::before { background: var(--fam-moto); }
+.fam-wing::before { background: var(--fam-wing); }
+.fam-bobsled::before { background: var(--fam-bobsled); }
+.fam-alpine::before { background: var(--fam-alpine); }
+.fam-pipeline::before { background: var(--fam-pipeline); }
+
+/* -------------------------------------------------- jauges de complétion */
+
+.gauge {
+  display: grid;
+  gap: 7px;
+}
+.gauge-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gauge-track {
+  height: 9px;
+  background: var(--paper-3);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.gauge-fill {
+  height: 100%;
+  background: var(--green);
+}
+.gauge-fill.warm {
+  background: var(--brass);
+}
+.gauge-fig {
+  font-family: var(--ff-mono);
+  font-size: 15px;
+  font-weight: 700;
+}
+.gauge-note {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* --------------------------------------------------------------- tampons */
+
+/* Un pays visité se tamponne. Typographique, pas illustratif. */
+.stamp {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  border: 2px solid var(--brass);
+  color: var(--brass);
+  text-align: center;
+  padding: 8px;
+  transform: rotate(-4deg);
+}
+.stamp::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1px dashed currentColor;
+  opacity: 0.55;
+}
+.stamp b {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  position: relative;
+  z-index: 1;
+}
+.stamp span {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  position: relative;
+  z-index: 1;
+}
+.stamp-todo {
+  border-color: var(--rule-2);
+  border-style: dashed;
+  color: var(--ink-3);
+  transform: rotate(2deg);
+}
+.stamp-todo::after {
+  display: none;
+}
+
+.stamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* ------------------------------------------------------------- l'almanach */
+
+/* Le classement traité comme une liste imprimée à cocher, pas comme un tableur. */
+.almanac {
+  border-top: 1.5px solid var(--ink);
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: 30px 54px 72px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  width: 100%;
+  text-align: left;
+}
+.entry:hover {
+  background: var(--paper-2);
+}
+
+.check {
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--rule-2);
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  color: transparent;
+  background: var(--paper-2);
+}
+.entry[data-done="true"] .check {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.entry-rank {
+  font-family: var(--ff-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+.entry[data-done="true"] .entry-rank {
+  color: var(--ink);
+}
+
+.entry-photo {
+  width: 72px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid var(--rule);
+  filter: saturate(0.85);
+}
+
+.entry-name {
+  font-family: var(--ff-display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.015em;
+}
+.entry-sub {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  margin-top: 1px;
+}
+.entry-score {
+  font-family: var(--ff-mono);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------- structures */
+
+.sheet {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 22px 24px;
+}
+
+.rule {
+  height: 1px;
+  background: var(--rule);
+  border: 0;
+  margin: 0;
+}
+.rule-strong {
+  height: 1.5px;
+  background: var(--ink);
+}
+
+.sect {
+  padding: clamp(38px, 5vw, 62px) 0;
+}
+.sect-alt {
+  background: var(--paper-2);
+  border-block: 1px solid var(--rule);
+}
+
+.sect-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 14px;
+  margin-bottom: 22px;
+  border-bottom: 1.5px solid var(--ink);
+  flex-wrap: wrap;
+}
+
+.cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 38px);
+}
+.cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.6vw, 32px);
+}
+.cols-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(16px, 2.2vw, 26px);
+}
+
+/* Mur de credits : la collection est le visuel. */
+.wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+.wall-item {
+  position: relative;
+  display: block;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--paper-2);
+}
+.wall-item img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+.wall-cap {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 20px 9px 8px;
+  background: linear-gradient(180deg, rgba(28, 43, 38, 0), rgba(28, 43, 38, 0.92) 60%);
+  color: #f6f3ea;
+}
+.wall-cap b {
+  display: block;
+  font-family: var(--ff-display);
+  font-size: 13px;
+  line-height: 1.15;
+}
+.wall-cap span {
+  display: block;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  margin-top: 3px;
+  opacity: 0.82;
+}
+.wall-n {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  font-family: var(--ff-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  background: var(--paper-2);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* --------------------------------------------------------------- filtres */
+
+.legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  background: var(--paper-2);
+  font-size: 13.5px;
+}
+.legend-item:hover {
+  border-color: var(--ink);
+}
+.legend-item[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.legend-item .n {
+  font-family: var(--ff-mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.legend-item[aria-pressed="true"] .n {
+  color: rgba(237, 233, 222, 0.66);
+}
+
+/* ------------------------------------------------------------------ divers */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--rule-2);
+  border-radius: 2px;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-2);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip-plus {
+  border-color: var(--green);
+  color: var(--green);
+}
+.chip-minus {
+  border-color: var(--ticket);
+  color: var(--ticket);
+}
+
+.note {
+  border-left: 2px solid var(--rule-2);
+  padding-left: 14px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  max-width: 72ch;
+}
+
+.foot {
+  border-top: 1.5px solid var(--ink);
+  padding: 32px 0 62px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------- responsive */
+
+@media (max-width: 1000px) {
+  .cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead-in {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .logo {
+    flex: 1;
+  }
+  .nav {
+    order: 2;
+    flex: 0 0 100%;
+    padding-top: 8px;
+    border-top: 1px solid var(--rule);
+  }
+  .cols-2,
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .entry {
+    grid-template-columns: 28px 46px minmax(0, 1fr) auto;
+    gap: 11px;
+  }
+  .entry-photo {
+    display: none;
+  }
+  .ticket {
+    grid-template-columns: minmax(0, 1fr) 104px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

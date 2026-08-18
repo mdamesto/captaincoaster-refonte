@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensation — Carte · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Funnel+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/js/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .stage { position: relative; height: 100svh; }
+  #map { position: absolute; inset: 0; background: #131725; }
+  .leaflet-container { background: #131725; font-family: var(--ff-body); }
+  .leaflet-control-zoom { display: none; }
+  .leaflet-control-attribution { background: rgba(23,28,46,.72); color: var(--dim-2); font-size: 10px; }
+  .leaflet-control-attribution a { color: var(--dim); }
+  .leaflet-popup-content-wrapper {
+    background: #1d2338; color: var(--haze); border: 1px solid var(--line-strong);
+    border-radius: 14px; box-shadow: 0 22px 50px rgba(0,0,0,.55);
+  }
+  .leaflet-popup-tip { background: #1d2338; border: 1px solid var(--line-strong); }
+  .leaflet-popup-content { margin: 15px 17px; min-width: 226px; }
+  .leaflet-popup-close-button { color: var(--dim) !important; }
+
+  /* Panneau de voyage : la carte devient un planificateur, pas un localisateur. */
+  .trip {
+    position: absolute; top: 92px; left: 18px; bottom: 18px; z-index: 500;
+    width: min(390px, calc(100% - 36px));
+    display: flex; flex-direction: column;
+    border-radius: 20px; overflow: hidden;
+    background: rgba(23,28,46,.86); border: 1px solid var(--line-strong);
+    backdrop-filter: saturate(150%) blur(16px);
+  }
+  .trip-head { padding: 20px 22px 14px; border-bottom: 1px solid var(--line); }
+  .trip-filters { display: flex; gap: 7px; padding: 12px 22px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .trip-list { flex: 1; overflow-y: auto; min-height: 0; }
+  .trip-foot { border-top: 1px solid var(--line); padding: 16px 22px 18px; }
+  .prow {
+    display: grid; grid-template-columns: 54px minmax(0,1fr) auto; gap: 12px; align-items: center;
+    width: 100%; text-align: left; padding: 11px 22px; border-bottom: 1px solid var(--line);
+  }
+  .prow:hover { background: rgba(232,230,239,.05); }
+  .prow img { width: 54px; height: 40px; object-fit: cover; border-radius: 8px; }
+  .prow[data-in="true"] { background: rgba(243,161,84,.1); box-shadow: inset 3px 0 0 var(--amber); }
+  .tripstat { display: flex; gap: 22px; flex-wrap: wrap; }
+  .tripstat div span { display: block; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+  .tripstat div b { display: block; font-family: var(--ff-display); font-weight: 600; font-size: 22px; margin-top: 3px; }
+  @media (max-width: 860px) {
+    .stage { height: auto; }
+    #map { position: relative; height: 58vh; }
+    .trip { position: relative; inset: auto; width: auto; margin: 16px; height: 62vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../../assets/js/vendor/leaflet/leaflet.js"></script>
+<script type="module">
+import { getData, floatbar, foot, photo, esc, num } from "./d3.js";
+import { mapParks } from "../assets/data.js";
+
+const d = await getData();
+const parks = mapParks(d).filter((p) => p.best);
+
+const FILTERS = [
+  { key: "t100", label: "Un top 100", test: (p) => p.bestRank <= 100 },
+  { key: "t500", label: "Un top 500", test: (p) => p.bestRank <= 500 },
+  { key: "big", label: "5 coasters et plus", test: (p) => (p.coasterCount || 0) >= 5 },
+  { key: "all", label: "Tous", test: () => true },
+];
+let active = "t500";
+
+/* Le voyage en cours : une suite de parcs, dans l'ordre où on les ajoute. */
+const trip = [];
+
+const R = 6371;
+function distKm(a, b) {
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const la1 = (a.lat * Math.PI) / 180, la2 = (b.lat * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+document.getElementById("app").innerHTML = `
+${floatbar("map")}
+<main id="main">
+  <div class="stage">
+    <div id="map"></div>
+    <aside class="trip">
+      <div class="trip-head">
+        <div class="eyebrow eyebrow-amber">Planifier</div>
+        <h2 style="font-size:26px;margin-top:8px">Ton prochain voyage</h2>
+        <p class="dim" style="font-size:13.5px;margin:8px 0 0">
+          Ajoute des parcs, la carte trace l'itinéraire et compte ce que tu iras chercher.
+        </p>
+      </div>
+      <div class="trip-filters" id="tfilters"></div>
+      <div class="trip-list" id="tlist"></div>
+      <div class="trip-foot" id="tfoot"></div>
+    </aside>
+  </div>
+
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="cols-2" style="align-items:start">
+        <div>
+          <div class="eyebrow eyebrow-amber">Pourquoi une carte-planificateur</div>
+          <h2 style="margin-top:10px">Une carte qui répond à « où j'y vais »</h2>
+          <p class="lede" style="margin-top:16px">
+            Un localisateur montre où sont les parcs. Un planificateur répond à la vraie
+            question : quel enchaînement de parcs vaut le déplacement, et combien de
+            coasters du top mondial je ramène.
+          </p>
+        </div>
+        <p class="note">
+          Les distances sont des distances à vol d'oiseau entre parcs, calculées sur les
+          coordonnées réelles des ${num(parks.length)} parcs classés de l'extrait. Un itinéraire
+          de production s'appuierait sur un vrai calcul routier.
+        </p>
+      </div>
+    </div>
+  </section>
+</main>
+${foot(`Coordonnées, coasters et scores proviennent du jeu de données réel du site.
+Fond de carte CARTO, comme sur le site actuel.`)}
+`;
+
+/* ------------------------------------------------------------------- carte */
+
+const map = L.map("map", { zoomControl: false, worldCopyJump: true }).setView([48, 6], 5);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: "© OpenStreetMap contributors © CARTO",
+  subdomains: "abcd",
+  maxZoom: 19,
+}).addTo(map);
+
+const markerLayer = L.layerGroup().addTo(map);
+const routeLayer = L.layerGroup().addTo(map);
+const markers = new Map();
+
+function popup(p) {
+  const list = (d.coastersByPark.get(p.id) || [])
+    .filter((c) => typeof c.score === "number")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+  return `
+<div class="eyebrow eyebrow-amber">${esc(p.country || p.best.country || "")}</div>
+<div style="font-family:var(--ff-display);font-weight:600;font-size:18px;margin:6px 0 10px">${esc(p.name)}</div>
+${list.map((c) => `
+<div style="display:flex;gap:10px;align-items:baseline;padding:4px 0;border-top:1px solid var(--line)">
+  <span class="dim" style="font-size:11px;width:38px">#${d.rankById.get(c.id)}</span>
+  <span style="flex:1;font-size:13.5px">${esc(c.name)}</span>
+  <span style="font-size:13px;color:var(--amber)">${c.score.toFixed(1)}</span>
+</div>`).join("")}
+<button class="btn btn-amber btn-sm" data-add="${p.id}" style="margin-top:12px;width:100%">
+  ${trip.includes(p.id) ? "Retirer du voyage" : "Ajouter au voyage"}
+</button>`;
+}
+
+function drawMarkers(list) {
+  markerLayer.clearLayers();
+  markers.clear();
+  for (const p of list) {
+    const inTrip = trip.includes(p.id);
+    const m = L.circleMarker([p.lat, p.lng], {
+      radius: inTrip ? 9 : p.bestRank <= 100 ? 7 : 5,
+      color: inTrip ? "#f3a154" : "rgba(232,230,239,.35)",
+      weight: inTrip ? 2 : 1,
+      fillColor: inTrip ? "#f3a154" : p.bestRank <= 100 ? "#e8e6ef" : "#7c85a3",
+      fillOpacity: inTrip ? 1 : 0.7,
+    }).bindPopup(() => popup(p));
+    m.addTo(markerLayer);
+    markers.set(p.id, m);
+  }
+}
+
+function drawRoute() {
+  routeLayer.clearLayers();
+  if (trip.length < 2) return;
+  const pts = trip.map((id) => parks.find((p) => p.id === id)).map((p) => [p.lat, p.lng]);
+  L.polyline(pts, { color: "#f3a154", weight: 2, opacity: 0.85, dashArray: "6 6" }).addTo(routeLayer);
+}
+
+/* ------------------------------------------------------------------ panneau */
+
+const tfilters = document.getElementById("tfilters");
+const tlist = document.getElementById("tlist");
+const tfoot = document.getElementById("tfoot");
+
+function tripStats() {
+  const items = trip.map((id) => parks.find((p) => p.id === id));
+  let km = 0;
+  for (let i = 1; i < items.length; i++) km += distKm(items[i - 1], items[i]);
+  const coasters = items.reduce((s, p) => s + (p.coasterCount || 0), 0);
+  const t100 = items.reduce(
+    (s, p) => s + (d.coastersByPark.get(p.id) || []).filter((c) => (d.rankById.get(c.id) || 9e9) <= 100).length,
+    0
+  );
+  return { items, km, coasters, t100 };
+}
+
+function render() {
+  const f = FILTERS.find((x) => x.key === active);
+  const rows = parks.filter(f.test).sort((a, b) => a.bestRank - b.bestRank);
+
+  tfilters.innerHTML = FILTERS.map(
+    (x) => `<button class="pill" data-f="${x.key}" aria-pressed="${x.key === active}">${x.label}
+    <span class="n">${num(parks.filter(x.test).length)}</span></button>`
+  ).join("");
+
+  tlist.innerHTML = rows.slice(0, 180).map((p) => `
+<button class="prow" data-id="${p.id}" data-in="${trip.includes(p.id)}">
+  <img src="${photo(p.id)}" alt="" loading="lazy">
+  <span style="min-width:0">
+    <span style="display:block;font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>
+    <span class="dim" style="display:block;font-size:12.5px">${esc(p.country || p.best.country || "")} · #${p.bestRank} ${esc(p.best.name)}</span>
+  </span>
+  <span style="text-align:right">
+    <span style="display:block;color:var(--amber);font-size:14px">${p.best.score.toFixed(1)}</span>
+    <span class="dim" style="display:block;font-size:11.5px">${p.coasterCount} coasters</span>
+  </span>
+</button>`).join("");
+
+  const s = tripStats();
+  tfoot.innerHTML = trip.length
+    ? `<div class="tripstat">
+         <div><span>Parcs</span><b>${s.items.length}</b></div>
+         <div><span>Coasters</span><b>${num(s.coasters)}</b></div>
+         <div><span>Du top 100</span><b style="color:var(--amber)">${s.t100}</b></div>
+         <div><span>Trajet</span><b>${num(Math.round(s.km))} km</b></div>
+       </div>
+       <button class="btn btn-ghost btn-sm" id="clear" style="margin-top:14px;width:100%">Vider le voyage</button>`
+    : `<p class="dim" style="margin:0;font-size:13.5px">Clique un parc dans la liste ou sur la carte pour commencer.</p>`;
+
+  drawMarkers(rows);
+  drawRoute();
+}
+
+function toggle(id) {
+  const i = trip.indexOf(id);
+  if (i >= 0) trip.splice(i, 1);
+  else trip.push(id);
+  render();
+}
+
+tfilters.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-f]");
+  if (!b) return;
+  active = b.dataset.f;
+  render();
+});
+
+tlist.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-id]");
+  if (!b) return;
+  const id = Number(b.dataset.id);
+  const p = parks.find((x) => x.id === id);
+  toggle(id);
+  map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 6), { duration: 0.6 });
+});
+
+tfoot.addEventListener("click", (e) => {
+  if (!e.target.closest("#clear")) return;
+  trip.length = 0;
+  render();
+});
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-add]");
+  if (!b) return;
+  toggle(Number(b.dataset.add));
+  map.closePopup();
+});
+
+render();
+</script>
+</body>
+</html>

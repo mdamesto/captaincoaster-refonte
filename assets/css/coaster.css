@@ -1,0 +1,96 @@
+/* Styles spécifiques à la fiche coaster (équivalent de build/coaster.css) */
+
+.score-compact { align-items: center; display: flex; gap: 15px; }
+.score-compact .score-number { font-size: 32px; font-weight: 700; line-height: 1; margin: 0; }
+.score-compact .score-percent { color: #6b7280; font-size: 18px; font-weight: 400; }
+.score-label { letter-spacing: .5px; margin-bottom: 8px; }
+.rank-number { color: #111827; font-size: 32px; font-weight: 700; line-height: 1; }
+.rank-link { text-decoration: none; }
+.rank-link:hover { text-decoration: none; }
+
+.rating-distribution-compact { margin-top: 1rem; }
+.rating-bar-container { width: 100%; }
+.rating-bar {
+  background-color: #f1f5f9; border-radius: 12px; box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
+  display: flex; height: 24px; margin-bottom: .5rem; overflow: hidden; width: 100%;
+}
+.rating-distribution-compact .rating-bar { border-radius: 10px; height: 20px; }
+.rating-segment {
+  align-items: center; cursor: pointer; display: flex; height: 100%; justify-content: center;
+  position: relative; transition: all .2s ease;
+}
+.rating-segment:hover { filter: brightness(1.1); transform: scaleY(1.4); z-index: 10; }
+.rating-segment-label {
+  color: rgba(255,255,255,.85); font-size: .75rem; font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,.3); white-space: nowrap;
+}
+.rating-segment.rating-5 { background-color: #40bf40; }
+.rating-segment.rating-4-5 { background-color: #6ab31f; }
+.rating-segment.rating-4 { background-color: #84a600; }
+.rating-segment.rating-3-5 { background-color: #999800; }
+.rating-segment.rating-3 { background-color: #a98a00; }
+.rating-segment.rating-2-5 { background-color: #b57b00; }
+.rating-segment.rating-2 { background-color: #bd6b09; }
+.rating-segment.rating-1-5 { background-color: #c25c20; }
+.rating-segment.rating-1 { background-color: #c24d31; }
+.rating-segment.rating-0-5 { background-color: #bf4040; }
+.no-ratings { color: #9ca3af; font-size: .875rem; padding: 2rem; text-align: center; }
+
+/* actions sous les étoiles */
+.rating-actions { align-items: center; display: flex; gap: 15px; justify-content: center; }
+.action-icon {
+  align-items: center; justify-content: center; background: rgba(0,0,0,.05); border: none;
+  border-radius: 50%; color: #666; cursor: pointer; display: inline-flex; height: 32px;
+  position: relative; text-decoration: none; transition: all .2s ease; width: 32px;
+}
+.action-icon:hover { background: rgba(0,123,255,.1); color: #007bff; text-decoration: none; transform: scale(1.1); }
+.action-icon.delete-icon:hover { background: rgba(220,53,69,.1); color: #dc3545; }
+.action-icon svg { width: 16px; height: 16px; }
+.date-indicator, .review-indicator {
+  background: #28a745; border: 1px solid #fff; border-radius: 50%; height: 6px;
+  position: absolute; right: 2px; top: 2px; width: 6px;
+}
+
+/* date picker inline */
+.inline-date-picker { position: relative; }
+.date-picker-popup-inline {
+  left: 50%; opacity: 0; position: absolute; top: calc(100% + 8px); transform: translateX(-50%);
+  transition: opacity .2s ease, visibility .2s ease; visibility: hidden; z-index: 1000;
+}
+.date-picker-popup-inline.show { opacity: 1; visibility: visible; }
+.date-picker-content-small {
+  background: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  min-width: 220px; padding: 12px;
+}
+.date-picker-label { color: #333; display: block; font-size: 13px; font-weight: 500; margin-bottom: 8px; }
+.small-date-input { border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 8px; padding: 8px; width: 100%; }
+.small-date-actions { display: flex; gap: 6px; }
+.tiny-btn { background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; flex: 1; font-size: 12px; padding: 6px 10px; transition: all .15s ease; }
+.today-btn:hover { background: #007bff; border-color: #007bff; color: #fff; }
+.clear-btn:hover { background: #dc3545; border-color: #dc3545; color: #fff; }
+
+/* résumé IA */
+.summary-feedback-section { border-top: 1px solid #eee; margin-top: 15px; padding-top: 15px; }
+.summary-feedback-buttons { align-items: center; display: inline-flex; gap: 8px; justify-content: flex-end; }
+.summary-feedback-buttons .btn { border-width: 1px; font-size: 11px; min-width: 40px; padding: 4px 8px; }
+.summary-feedback-buttons .btn.active { border-width: 2px; }
+.btn-outline-success { border: 1px solid #28a745; color: #28a745; background: transparent; }
+.btn-outline-success:hover, .btn-outline-success.active { background-color: #28a745; color: #fff; }
+.btn-outline-danger { border: 1px solid #dc3545; color: #dc3545; background: transparent; }
+.btn-outline-danger:hover, .btn-outline-danger.active { background-color: #dc3545; color: #fff; }
+
+/* vignette YouTube */
+.youtube-thumbnail { border-radius: 4px; display: block; margin-bottom: 20px; overflow: hidden; position: relative; transition: transform .2s; }
+.youtube-thumbnail:hover { text-decoration: none; transform: scale(1.02); }
+.youtube-thumbnail img { display: block; height: auto; width: 100%; }
+.youtube-thumbnail::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 68 48'%3E%3Cpath fill='red' d='M66.52 7.74c-.78-2.93-2.49-5.41-5.42-6.19C55.79.13 34 0 34 0S12.21.13 6.9 1.55c-2.93.78-4.63 3.26-5.42 6.19C.06 13.05 0 24 0 24s.06 10.95 1.48 16.26c.78 2.93 2.49 5.41 5.42 6.19C12.21 47.87 34 48 34 48s21.79-.13 27.1-1.55c2.93-.78 4.64-3.26 5.42-6.19C67.94 34.95 68 24 68 24s-.06-10.95-1.48-16.26'/%3E%3Cpath fill='%23fff' d='M45 24 27 14v20'/%3E%3C/svg%3E") 50%/contain no-repeat;
+  content: ""; height: 48px; left: 50%; pointer-events: none; position: absolute; top: 50%;
+  transform: translate(-50%,-50%); width: 68px;
+}
+
+.coaster-photo-grid { display: flex; flex-wrap: wrap; margin: -8px; }
+.coaster-photo-grid > .col-sm-3 { padding: 8px; }
+.coaster-photo-grid .thumb img { aspect-ratio: 4 / 3; object-fit: cover; }
+.image-like-btn { display: inline-flex; align-items: center; gap: 3px; }
+.image-like-btn.liked { color: var(--danger); }

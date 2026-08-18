@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit — Denis B · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist+Mono:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .prof-hero { position: relative; overflow: hidden; background: var(--asphalt); border-bottom: 1px solid var(--line); }
+  .prof-hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .3; }
+  .prof-hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(92deg, var(--graphite) 4%, rgba(22,24,28,.72) 48%, rgba(22,24,28,.4) 100%);
+  }
+  .prof-hero-in { position: relative; z-index: 1; padding: 46px 0 40px; }
+
+  /* Jauge de complétion : une clôture motive, un compteur qui monte non. */
+  .gauge { display: grid; gap: 8px; }
+  .gauge-track { height: 10px; background: var(--slab); border-radius: 1px; overflow: hidden; }
+  .gauge-fill { height: 100%; background: var(--signal); }
+  .gauge-fill.dim { background: var(--steel-dim); }
+  .gauge-figs { display: flex; justify-content: space-between; align-items: baseline; }
+
+  .verdictrow { display: grid; grid-template-columns: 56px minmax(0, 1fr) 92px 92px 160px; gap: 14px; align-items: center; }
+  .agree { font-family: var(--ff-mono); font-size: 11.5px; white-space: nowrap; }
+  .agree.same { color: var(--steel); }
+  .agree.over { color: var(--signal); }
+  .agree.under { color: var(--steel-dim); }
+
+  .topgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; }
+  .topcard { position: relative; background: var(--asphalt); overflow: hidden; }
+  .topcard img { width: 100%; aspect-ratio: 3/4; object-fit: cover; opacity: .72; }
+  .topcard-n {
+    position: absolute; top: 0; left: 0; z-index: 1;
+    font-stretch: 62%; font-weight: 800; font-size: 34px; line-height: 1;
+    padding: 6px 10px 8px 8px; background: var(--signal); color: #12100f;
+  }
+  .topcard-cap {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 12px;
+    background: linear-gradient(180deg, rgba(22,24,28,0), rgba(22,24,28,.94) 62%);
+  }
+  @media (max-width: 1080px) { .topgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 700px) {
+    .topgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .verdictrow { grid-template-columns: 44px minmax(0, 1fr) 74px; }
+    .verdictrow > :nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, rail, foot, photo, HERO, tallPhoto, esc, num, avatar } from "./d1.js";
+import { riderView, HERO_USER_ID } from "../assets/data.js";
+
+const d = await getData();
+const u = riderView(d, HERO_USER_ID);
+const field = d.ranking.length;
+
+const stat = (k) => u.stats?.[k] ?? null;
+const credits = Number(String(stat("coasters") || "0").replace(/\D/g, "")) || 0;
+const parksN = Number(String(stat("parks") || "0").replace(/\D/g, "")) || 0;
+const countries = Number(String(stat("countries") || "0").replace(/\D/g, "")) || 0;
+const [topDone, topTotal] = String(stat("World TOP 100") || "0/100").split("/").map(Number);
+
+/* Dénominateurs réels : la taxonomie officielle du site, pas l'extrait. */
+const taxo = await fetch(new URL("../../data/taxonomies.json", import.meta.url)).then((r) => r.json());
+const allCountries = taxo.country.length;
+const allParks = d.parks.length;
+
+const GAUGES = [
+  { label: "Top 100 mondial", done: topDone, total: topTotal, note: "les 100 meilleurs coasters du classement" },
+  { label: "Pays", done: countries, total: allCountries, note: "pays où il a au moins un credit" },
+  { label: "Parcs", done: parksN, total: allParks, note: "parcs référencés dans la base" },
+];
+
+/* ------------------------------------------------ ses notes contre le monde */
+// Sa note (sur 5) ramenée sur 100, comparée au score mondial du coaster.
+// Là où l'écart est fort, il vote à contre-courant : c'est ce qui a du prix
+// dans un système de duels, parce que ce sont ces avis qui font bouger un rang.
+const verdicts = u.ratings
+  .filter((r) => r.coaster && typeof r.coaster.score === "number")
+  .map((r) => {
+    const his = (r.value / 5) * 100;
+    return { ...r, his, gap: his - r.coaster.score };
+  })
+  .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
+
+const contrarian = verdicts.filter((v) => Math.abs(v.gap) > 25).length;
+
+document.getElementById("app").innerHTML = `
+${rail("profile")}
+<main id="main">
+
+  <section class="prof-hero">
+    <img class="prof-hero-img" src="${HERO.profile}" alt="">
+    <div class="prof-hero-in">
+      <div class="wrap-wide">
+        <div style="display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap">
+          <img src="${avatar(u.name, 128)}" alt="" style="width:92px;height:92px;border-radius:2px">
+          <div style="flex:1;min-width:min(260px,100%)">
+            <div class="label label-signal">Rider</div>
+            <h1 style="margin-top:8px">${esc(u.name)}</h1>
+            <div class="muted" style="margin-top:8px;font-size:14px">
+              ${stat("Top Country") ? `Terrain de jeu principal : ${esc(stat("Top Country"))}` : ""}
+              ${stat("Favorite Manufacturer") ? ` · Constructeur préféré : ${esc(stat("Favorite Manufacturer"))}` : ""}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="label">Credits</div>
+            <div class="score" style="font-size:clamp(56px,8vw,96px);margin-top:6px">${num(credits)}</div>
+          </div>
+        </div>
+
+        <div class="cols-3" style="gap:34px;margin-top:40px">
+          ${GAUGES.map((g) => {
+            const pct = Math.min(100, (g.done / g.total) * 100);
+            return `
+          <div class="gauge">
+            <div class="gauge-figs">
+              <span class="label">${g.label}</span>
+              <span class="mono" style="font-size:15px">${num(g.done)}<span class="muted"> / ${num(g.total)}</span></span>
+            </div>
+            <div class="gauge-track"><div class="gauge-fill${pct < 40 ? " dim" : ""}" style="width:${pct}%"></div></div>
+            <div class="pct-note">${g.note}</div>
+          </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------- palmarès chiffré -->
+  <section class="sect" style="padding-block:32px;border-bottom:1px solid var(--line)">
+    <div class="wrap-wide">
+      <div style="display:flex;gap:44px;flex-wrap:wrap">
+        ${[
+          ["Parcs visités", num(parksN)],
+          ["Pays", num(countries)],
+          ["Avis rédigés", num(u.reviews.length)],
+          ["Coasters dans son top", num(u.topItems.length)],
+          ["Notes à contre-courant", num(contrarian)],
+        ].map(([k, v]) => `<div><div class="label">${k}</div><div class="mono" style="font-size:26px;margin-top:5px">${v}</div></div>`).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- son top -->
+  ${u.topItems.length ? `
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="sect-head">
+        <div>
+          <div class="label label-signal">Son classement personnel</div>
+          <h2 style="margin-top:8px">Le top de ${esc(u.name)}</h2>
+        </div>
+        <span class="mono muted" style="font-size:12px">${u.topItems.length} coasters classés</span>
+      </div>
+      <div class="topgrid">
+        ${u.topItems.slice(0, 10).map((c, i) => `
+        <article class="topcard">
+          <span class="topcard-n">${i + 1}</span>
+          <img src="${tallPhoto(c.id)}" alt="" loading="lazy">
+          <div class="topcard-cap">
+            <div style="font-stretch:112%;font-weight:700;font-size:14px;line-height:1.2">${esc(c.name)}</div>
+            <div class="row-sub" style="margin-top:4px">${esc(c.park?.name || "")}</div>
+            <div class="mono" style="font-size:11px;margin-top:6px;color:var(--signal)">
+              ${c.rank ? "#" + c.rank + " mondial" : "non classé"}
+            </div>
+          </div>
+        </article>`).join("")}
+      </div>
+      <p class="note" style="margin-top:18px">
+        Un top personnel vaut plus qu'une note : il produit un duel pour chaque paire.
+        Dix coasters classés, ce sont quarante-cinq duels versés au classement mondial.
+      </p>
+    </div>
+  </section>` : ""}
+
+  <!-- ----------------------------------------------- ses notes contre le monde -->
+  <section class="sect" style="background:var(--asphalt);border-block:1px solid var(--line)">
+    <div class="wrap-wide">
+      <div class="sect-head" style="border-color:var(--line-strong)">
+        <div>
+          <div class="label">Là où il ne pense pas comme tout le monde</div>
+          <h2 style="margin-top:8px">Ses verdicts contre le classement</h2>
+        </div>
+        <span class="mono muted" style="font-size:12px">${verdicts.length} notes comparables</span>
+      </div>
+
+      <div class="verdictrow" style="padding:0 0 10px;border-bottom:1px solid var(--line-strong)">
+        <span class="label">Rang</span>
+        <span class="label">Coaster</span>
+        <span class="label" style="text-align:right">Sa note</span>
+        <span class="label" style="text-align:right">Le monde</span>
+        <span class="label" style="text-align:right">Écart</span>
+      </div>
+
+      ${verdicts.slice(0, 12).map((v) => {
+        const cls = Math.abs(v.gap) < 12 ? "same" : v.gap > 0 ? "over" : "under";
+        const word = Math.abs(v.gap) < 12 ? "aligné" : v.gap > 0 ? "plus haut" : "plus bas";
+        return `
+      <div class="verdictrow" style="padding:11px 0;border-bottom:1px solid var(--line)">
+        <span class="mono muted" style="font-size:12px">#${v.rank}</span>
+        <span style="min-width:0">
+          <span style="display:block;font-weight:700;font-size:14.5px">${esc(v.coaster.name)}</span>
+          <span class="row-sub">${esc(d.parkById.get(v.coaster.parkId)?.name || "")} · ${esc(v.riddenAt)}</span>
+        </span>
+        <span class="mono" style="text-align:right;font-size:15px">${v.value.toFixed(1)}<span class="muted" style="font-size:11px">/5</span></span>
+        <span class="mono" style="text-align:right;font-size:15px">${v.coaster.score.toFixed(1)}</span>
+        <span style="text-align:right"><span class="agree ${cls}">${v.gap > 0 ? "+" : ""}${v.gap.toFixed(0)} pts ${word}</span></span>
+      </div>`;
+      }).join("")}
+
+      <p class="note" style="margin-top:18px">
+        Dans un classement par duels, ce sont les avis minoritaires qui font bouger les rangs.
+        Un rider qui note comme tout le monde confirme le classement ; celui qui s'en écarte le déplace.
+      </p>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- ses avis -->
+  ${u.reviews.length ? `
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="sect-head"><h2>Ses avis</h2></div>
+      <div class="cols-2" style="gap:30px">
+        ${u.reviews.slice(0, 4).map((r) => {
+          const c = d.coasterById.get(r.coasterId);
+          return `
+        <article class="panel">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+            <img class="row-photo" style="width:66px;height:42px" src="${photo(r.coasterId)}" alt="" loading="lazy">
+            <div style="flex:1;min-width:0">
+              <div class="row-name">${esc(c?.name || "")}</div>
+              <div class="row-sub">${esc(d.parkById.get(c?.parkId)?.name || "")} · ${esc(r.ago)}</div>
+            </div>
+            <div class="mono" style="font-size:17px;color:var(--signal)">${r.rating.toFixed(1)}</div>
+          </div>
+          ${r.text ? `<p style="margin:0 0 12px;font-size:14px">${esc(r.text)}</p>` : ""}
+          <div class="chips">
+            ${(r.pros || []).map((p) => `<span class="tag tag-on">+ ${esc(p)}</span>`).join("")}
+            ${(r.cons || []).map((p) => `<span class="tag">− ${esc(p)}</span>`).join("")}
+          </div>
+        </article>`;
+        }).join("")}
+      </div>
+    </div>
+  </section>` : ""}
+
+</main>
+${foot(`Credits, parcs, pays et couverture du top 100 sont les statistiques réelles publiées sur le
+profil. Les notes, le top et les avis proviennent du jeu de données extrait du site. L'écart avec le
+classement est calculé en ramenant la note sur cinq à la même échelle que le score mondial.`)}
+`;
+</script>
+</body>
+</html>

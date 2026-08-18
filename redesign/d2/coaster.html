@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet — Steel Vengeance · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Inclusive+Sans:ital,wght@0,300..700;1,300..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .head-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: clamp(22px, 3.5vw, 44px); align-items: start; }
+  .head-photo { width: 100%; aspect-ratio: 16/10; object-fit: cover; border: 1px solid var(--rule); border-radius: 3px; }
+
+  /* Fiche technique imprimée : conduite de points, comme un catalogue. */
+  .specline { display: flex; align-items: baseline; gap: 6px; padding: 7px 0; }
+  .specline dt { color: var(--ink-2); font-size: 14.5px; flex: none; }
+  .specline .leader { flex: 1; border-bottom: 1px dotted var(--rule-2); transform: translateY(-4px); }
+  .specline dd { margin: 0; font-family: var(--ff-mono); font-weight: 700; font-size: 14.5px; flex: none; }
+
+  .review { padding: 22px 0; border-bottom: 1px solid var(--rule); }
+  .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .review-head img { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--rule-2); }
+  .review-body { font-size: 17px; line-height: 1.68; max-width: 62ch; }
+  .stars { color: var(--ticket); letter-spacing: 2px; font-size: 14px; }
+
+  .histo { display: flex; align-items: flex-end; gap: 3px; height: 54px; }
+  .histo-bar { flex: 1; background: var(--rule-2); border-radius: 1px 1px 0 0; min-height: 2px; }
+  .histo-bar.is-top { background: var(--ticket); }
+
+  .gal { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .gal figure { margin: 0; }
+  .gal img { width: 100%; aspect-ratio: 3/2; object-fit: cover; border: 1px solid var(--rule); border-radius: 2px; }
+  .gal figcaption { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--ink-3); margin-top: 5px; font-family: var(--ff-mono); }
+
+  @media (max-width: 900px) {
+    .head-grid { grid-template-columns: minmax(0, 1fr); }
+    .gal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, masthead, foot, photo, family, material, serial, longDate, stars, esc, num, avatar, HERO } from "./d2.js";
+import { coasterView, HERO_COASTER_ID, riderView, HERO_USER_ID } from "../assets/data.js";
+
+const d = await getData();
+const c = coasterView(d, HERO_COASTER_ID);
+const u = riderView(d, HERO_USER_ID);
+const f = family(c);
+
+/* Sa ligne à lui, si ce coaster est déjà dans son carnet. */
+const mine = u.ratings.find((r) => r.coasterId === c.id) || null;
+const inTop = u.topItems.findIndex((x) => x.id === c.id);
+
+const buckets = new Array(10).fill(0);
+for (const r of c.reviews) buckets[Math.max(0, Math.min(9, Math.round(r.rating * 2) - 1))]++;
+const bmax = Math.max(1, ...buckets);
+
+const SPECS = [
+  ["Hauteur", c.heightM ? `${c.heightM} m` : null],
+  ["Vitesse", c.speedKmh ? `${c.speedKmh} km/h` : null],
+  ["Longueur", c.lengthM ? `${num(c.lengthM)} m` : null],
+  ["Inversions", c.inversions ?? null],
+  ["Constructeur", c.manufacturer],
+  ["Ouverture", c.year],
+  ["Matériau", material(c)],
+  ["Type", f.key === "unknown" ? null : f.label],
+  ["Statut", c.status === "Operating" ? "En service" : c.status],
+].filter(([, v]) => v !== null && v !== undefined && v !== "");
+
+document.getElementById("app").innerHTML = `
+${masthead("ranking")}
+<main id="main">
+
+  <!-- ------------------------------------------------------------- en-tête -->
+  <section style="padding:clamp(28px,4vw,48px) 0 0">
+    <div class="wrap">
+      <div class="head-grid">
+        <div>
+          <div class="cap cap-ticket">${esc(c.park?.name || "")} · ${esc(c.country)}</div>
+          <h1 style="margin-top:12px">${esc(c.name)}</h1>
+          <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:14px">
+            <span class="fam fam-${f.key}">${f.label}</span>
+            ${material(c) ? `<span class="mono dim" style="font-size:12px">${material(c)}</span>` : ""}
+            <span class="mono dim" style="font-size:12px">${c.manufacturer || ""}${c.year ? ` · ${c.year}` : ""}</span>
+          </div>
+          <img class="head-photo" src="${HERO.coaster}" alt="" style="margin-top:22px" width="1200" height="800" fetchpriority="high">
+        </div>
+
+        <div>
+          <div class="sheet">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:14px">
+              <span class="cap">Classement mondial</span>
+              <span class="mono dim" style="font-size:12px">${num(d.ranking.length)} classés</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:14px;margin-top:8px">
+              <span class="serif" style="font-weight:800;font-size:52px;line-height:1;letter-spacing:-.04em">#${c.rank}</span>
+              <span class="mono" style="font-size:22px;color:var(--ticket);font-weight:700">${c.score.toFixed(1)}</span>
+            </div>
+            <hr class="rule" style="margin:18px 0 14px">
+            <div class="cap" style="margin-bottom:10px">Distribution des notes</div>
+            <div class="histo">
+              ${buckets.map((n) => `<div class="histo-bar${n === bmax ? " is-top" : ""}" style="height:${Math.max(3, (n / bmax) * 100)}%"></div>`).join("")}
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px">
+              <span class="mono" style="font-size:11px;color:var(--ticket)">★</span>
+              <span class="mono" style="font-size:11px;color:var(--ticket)">★★★★★</span>
+            </div>
+            <div class="gauge-note" style="margin-top:10px">
+              moyenne ${c.ratingAverage ? c.ratingAverage.toFixed(2) : "—"} · ${num(c.summary?.reviewCount || c.reviews.length)} avis
+            </div>
+          </div>
+
+          <!-- ------------------------------------------- ta ligne dans le carnet -->
+          <div style="margin-top:14px">
+            ${mine || inTop >= 0 ? `
+            <article class="ticket">
+              <div class="ticket-body">
+                <div class="cap cap-green">Ta ligne dans le carnet</div>
+                <div class="ticket-name" style="margin-top:6px">${mine ? longDate(mine.riddenAt) : "Date non renseignée"}</div>
+                <div class="ticket-meta">
+                  ${inTop >= 0 ? `${inTop + 1}ᵉ de ton top personnel` : "Pas encore dans ton top"}
+                </div>
+                <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                  <a class="btn btn-ghost btn-sm" href="#">${mine ? "Modifier" : "Dater ce ride"}</a>
+                  <a class="btn btn-ghost btn-sm" href="#">Écrire un avis</a>
+                </div>
+              </div>
+              <div class="ticket-stub">
+                <span class="cap" style="font-size:9px">${mine ? "Ma note" : "Mon rang"}</span>
+                <span class="ticket-score">${mine ? mine.value.toFixed(1) : inTop + 1}</span>
+                <span class="ticket-serial">${serial(u.id, c.id, mine ? mine.riddenAt : "")}</span>
+              </div>
+            </article>` : `
+            <div class="sheet" style="border-style:dashed">
+              <div class="cap">Pas encore dans ton carnet</div>
+              <p style="margin:10px 0 14px">Ajoute-le pour lancer ton talon et faire avancer ta jauge du top 100.</p>
+              <a class="btn btn-ticket btn-sm" href="#">Inscrire ce credit</a>
+            </div>`}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------- fiche technique + synthèse -->
+  <section class="sect">
+    <div class="wrap">
+      <div class="cols-2" style="align-items:start">
+
+        <div>
+          <div class="sect-head"><h2>Fiche technique</h2></div>
+          <dl style="margin:0">
+            ${SPECS.map(([k, v]) => `
+            <div class="specline"><dt>${k}</dt><span class="leader"></span><dd>${esc(String(v))}</dd></div>`).join("")}
+          </dl>
+        </div>
+
+        ${c.summary ? `
+        <div>
+          <div class="sect-head">
+            <h2>Ce que dit la communauté</h2>
+            <span class="mono dim" style="font-size:13px">${num(c.summary.reviewCount)} avis</span>
+          </div>
+          <p style="font-size:17.5px;line-height:1.68">${esc(c.summary.text)}</p>
+          <div class="cap" style="margin:20px 0 10px">Ce qui revient</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            ${c.summary.highlights.map((h) => `<span class="chip chip-plus">${esc(h)}</span>`).join("")}
+          </div>
+          <div class="cap" style="margin:18px 0 10px">Les réserves</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap">
+            ${c.summary.concerns.map((h) => `<span class="chip chip-minus">${esc(h)}</span>`).join("")}
+          </div>
+        </div>` : ""}
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- galerie -->
+  <section class="sect sect-alt">
+    <div class="wrap">
+      <div class="sect-head">
+        <h2>Galerie</h2>
+        <span class="mono dim" style="font-size:13px">${c.photos.length} photos · ${num(c.photos.reduce((s, p) => s + p.likes, 0))} likes</span>
+      </div>
+      <div class="gal">
+        ${c.photos.slice(0, 8).map((p) => `
+        <figure>
+          <img src="${photo(p.id)}" alt="" loading="lazy">
+          <figcaption><span>${esc(p.credit)}</span><span>♥ ${p.likes}</span></figcaption>
+        </figure>`).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- avis -->
+  <section class="sect">
+    <div class="wrap">
+      <div class="cols-2" style="gap:clamp(24px,4vw,56px);align-items:start">
+
+        <div>
+          <div class="sect-head"><h2>Les avis</h2><span class="mono dim" style="font-size:13px">les plus utiles</span></div>
+          ${c.reviews.slice(0, 5).map((r) => `
+          <article class="review">
+            <div class="review-head">
+              <img src="${avatar(r.userName, 72)}" alt="">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700">${esc(r.userName)}</div>
+                <div class="gauge-note">${esc(r.ago)}</div>
+              </div>
+              <div class="stars">${stars(r.rating)}</div>
+            </div>
+            ${r.text ? `<p class="review-body">${esc(r.text)}</p>` : ""}
+            <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:12px">
+              ${(r.pros || []).map((p) => `<span class="chip chip-plus">${esc(p)}</span>`).join("")}
+              ${(r.cons || []).map((p) => `<span class="chip chip-minus">${esc(p)}</span>`).join("")}
+              ${r.upvotes ? `<span class="gauge-note" style="margin-left:auto">${r.upvotes} personnes ont trouvé cet avis utile</span>` : ""}
+            </div>
+          </article>`).join("")}
+        </div>
+
+        <div>
+          <div class="sect-head">
+            <h2>Aussi à ${esc(c.park?.name || "")}</h2>
+            <span class="mono dim" style="font-size:13px">${c.siblings.length} coasters</span>
+          </div>
+          <div class="almanac">
+            ${c.siblings.slice(0, 10).map((s) => {
+              const sf = family(s);
+              const done = u.ratings.some((r) => r.coasterId === s.id) || u.topItems.some((x) => x.id === s.id);
+              return `
+            <div class="entry" data-done="${done}" style="grid-template-columns:30px 54px minmax(0,1fr) auto">
+              <span class="check">✓</span>
+              <span class="entry-rank">${s.rank ? "#" + s.rank : "—"}</span>
+              <span style="min-width:0">
+                <span class="entry-name" style="font-size:16px">${esc(s.name)}</span>
+                <span class="entry-sub"><span class="fam fam-${sf.key}">${sf.label}</span>${s.year ? ` · ${s.year}` : ""}</span>
+              </span>
+              <span class="entry-score">${s.score ? s.score.toFixed(1) : "—"}</span>
+            </div>`;
+            }).join("")}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+${foot(`Score, rang, avis, étiquettes et synthèse proviennent du jeu de données réel du site.
+Les photographies sont des substituts libres de droits — les crédits affichés sont ceux des vrais
+auteurs relevés sur le site.`)}
+`;
+</script>
+</body>
+</html>

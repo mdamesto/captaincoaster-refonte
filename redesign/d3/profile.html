@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensation — Mon empreinte · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Funnel+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .figures { display: flex; gap: clamp(22px, 4vw, 56px); flex-wrap: wrap; }
+  .figures div span { display: block; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+  .figures div b { display: block; font-family: var(--ff-display); font-weight: 600; font-size: clamp(28px, 3.6vw, 44px); line-height: 1; margin-top: 6px; }
+
+  /* Le mur de tracés : la signature de la direction, appliquée à une collection. */
+  .traces { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+  .tracecard { background: var(--dusk); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px 12px; display: flex; flex-direction: column; }
+  .tracecard svg { margin-top: auto; padding-top: 12px; }
+  .tracecard b { display: block; font-family: var(--ff-display); font-weight: 600; font-size: 16px; letter-spacing: -.02em; }
+  .tracecard span { display: block; font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+  .tracecard svg { width: 100%; height: auto; margin-top: 12px; }
+
+  .country { display: grid; grid-template-columns: 118px minmax(0, 1fr) 42px; gap: 12px; align-items: center; padding: 6px 0; }
+  .country-track { height: 6px; border-radius: 999px; background: rgba(232,230,239,.1); overflow: hidden; }
+  .country-fill { height: 100%; background: var(--amber); border-radius: 999px; }
+
+  .said { font-size: clamp(19px, 2.4vw, 26px); line-height: 1.45; max-width: 30ch; font-family: var(--ff-display); font-weight: 400; letter-spacing: -.02em; }
+  .said b { color: var(--amber); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, floatbar, foot, tallPhoto, HERO, trace, tracePath, tagFr, esc, num, avatar, TRACE_NOTE } from "./d3.js";
+import { riderView, HERO_USER_ID } from "../assets/data.js";
+
+const d = await getData();
+const u = riderView(d, HERO_USER_ID);
+const taxo = await fetch(new URL("../../data/taxonomies.json", import.meta.url)).then((r) => r.json());
+
+const stat = (k) => u.stats?.[k] ?? null;
+const credits = Number(String(stat("coasters") || "0").replace(/\D/g, "")) || 0;
+const parksN = Number(String(stat("parks") || "0").replace(/\D/g, "")) || 0;
+const countriesN = Number(String(stat("countries") || "0").replace(/\D/g, "")) || 0;
+const [topDone, topTotal] = String(stat("World TOP 100") || "0/100").split("/").map(Number);
+
+/* Sa collection connue : top personnel + notes datées. */
+const known = [...new Set([...u.topItems.map((c) => c.id), ...u.ratings.map((r) => r.coasterId)])]
+  .map((id) => d.coasterById.get(id))
+  .filter(Boolean);
+
+/* Son profil de sensation : les étiquettes qui reviennent dans les avis des
+   coasters qu'il a classés. Ça décrit son goût, pas ses mots. */
+const taste = (() => {
+  const m = new Map();
+  for (const c of known) {
+    for (const r of d.reviewsByCoaster.get(c.id) || []) {
+      for (const p of r.pros || []) m.set(p, (m.get(p) || 0) + 1);
+    }
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+})();
+const tasteMax = Math.max(1, ...taste.map(([, n]) => n));
+
+/* Empreinte géographique : où ses credits se concentrent. */
+const geo = (() => {
+  const m = new Map();
+  for (const c of known) if (c.country) m.set(c.country, (m.get(c.country) || 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+})();
+const geoMax = Math.max(1, ...geo.map(([, n]) => n));
+
+/* Les phrases valent mieux qu'un tableau — modèle Strava Athlete Intelligence. */
+const t100 = known.filter((c) => (d.rankById.get(c.id) || 9e9) <= 100).length;
+const bestMaker = (() => {
+  const m = new Map();
+  for (const c of known) if (c.manufacturer) m.set(c.manufacturer, (m.get(c.manufacturer) || 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1])[0] || null;
+})();
+
+document.getElementById("app").innerHTML = `
+${floatbar("profile")}
+<main id="main">
+
+  <section class="hero" style="min-height:min(78svh,640px)">
+    <img class="hero-img" src="${HERO.profile}" alt="" fetchpriority="high" width="1920" height="1277">
+    <span class="credit">Photo Unsplash</span>
+    <div class="hero-in">
+      <div class="wrap-wide">
+        <div style="display:flex;gap:18px;align-items:center">
+          <img src="${avatar(u.name, 140)}" alt="" style="width:64px;height:64px;border-radius:999px;border:1px solid var(--line-strong)">
+          <div>
+            <div class="eyebrow eyebrow-amber">Empreinte de rider</div>
+            <h1 style="margin-top:8px;font-size:clamp(34px,5.4vw,66px)">${esc(u.name)}</h1>
+          </div>
+        </div>
+        <div class="figures" style="margin-top:32px">
+          <div><span>Coasters</span><b>${num(credits)}</b></div>
+          <div><span>Parcs</span><b>${num(parksN)}</b></div>
+          <div><span>Pays</span><b>${num(countriesN)}</b></div>
+          <div><span>Du top 100</span><b style="color:var(--amber)">${topDone}<span class="dim" style="font-size:.5em">/${topTotal}</span></b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------- phrases, pas tableaux -->
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="cols-2" style="align-items:center;gap:clamp(24px,5vw,64px)">
+        <p class="said">
+          Tu as fait <b>${topDone} des 100 meilleurs coasters du monde</b>,
+          dans <b>${num(countriesN)} pays</b>.
+          ${bestMaker ? `Ta collection penche vers <b>${esc(bestMaker[0])}</b>.` : ""}
+          ${taste.length ? `Ce que tu vas chercher, d'après les avis : <b>${esc(tagFr(taste[0][0]))}</b>.` : ""}
+        </p>
+        <div>
+          <div class="eyebrow">Complétion des jalons</div>
+          <div style="display:grid;gap:16px;margin-top:16px">
+            ${[
+              ["Top 100 mondial", topDone, topTotal],
+              ["Pays", countriesN, taxo.country.length],
+              ["Parcs", parksN, d.parks.length],
+            ].map(([label, done, total]) => `
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                <span style="font-size:14.5px">${label}</span>
+                <span class="num" style="font-size:15px">${num(done)}<span class="dim"> / ${num(total)}</span></span>
+              </div>
+              <div class="country-track" style="margin-top:7px"><div class="country-fill" style="width:${Math.min(100, (done / total) * 100)}%"></div></div>
+            </div>`).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------- mur de tracés -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="sect-head">
+        <div>
+          <div class="eyebrow eyebrow-amber">Ta collection, en silhouettes</div>
+          <h2 style="margin-top:10px">Tes dix premiers tracés</h2>
+        </div>
+        <span class="dim" style="font-size:14px">${u.topItems.length} coasters classés dans ton top</span>
+      </div>
+      <div class="traces">
+        ${u.topItems.slice(0, 10).map((c, i) => {
+          const t = trace(c);
+          return `
+        <a class="tracecard" href="coaster.html">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+            <b>${esc(c.name)}</b>
+            <span class="num" style="color:var(--amber);font-size:14px">${i + 1}</span>
+          </div>
+          <span>${esc(c.park?.name || "")}${c.heightM ? ` · ${c.heightM} m` : ""}${c.speedKmh ? ` · ${c.speedKmh} km/h` : ""}</span>
+          <svg viewBox="0 0 300 70" aria-hidden="true">
+            <path d="${tracePath(t, 300, 70, 5)}" fill="none" stroke="rgba(243,161,84,.9)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </a>`;
+        }).join("")}
+      </div>
+      <p class="note" style="margin-top:22px">${TRACE_NOTE}</p>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------- goût + empreinte géo -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="cols-2" style="align-items:start">
+
+        <div class="panel">
+          <div class="eyebrow eyebrow-amber">Ton profil de sensation</div>
+          <h3 style="margin:12px 0 18px">Ce que tu vas chercher</h3>
+          <div class="sensa">
+            ${taste.map(([tag, n]) => `
+            <div class="sensa-row">
+              <span style="font-size:14.5px">${esc(tagFr(tag))}</span>
+              <span class="sensa-track"><span class="sensa-fill" style="width:${(n / tasteMax) * 100}%"></span></span>
+              <span class="num" style="font-size:14px;text-align:right">${n}</span>
+            </div>`).join("")}
+          </div>
+          <p class="note" style="margin-top:20px">
+            Calculé à partir des étiquettes des avis portant sur les coasters de ta
+            collection connue — ça décrit ton goût, pas tes mots.
+          </p>
+        </div>
+
+        <div class="panel">
+          <div class="eyebrow eyebrow-amber">Empreinte géographique</div>
+          <h3 style="margin:12px 0 18px">Où tu roules</h3>
+          <div>
+            ${geo.map(([name, n]) => `
+            <div class="country">
+              <span style="font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span>
+              <span class="country-track"><span class="country-fill" style="width:${(n / geoMax) * 100}%"></span></span>
+              <span class="num" style="font-size:14px;text-align:right">${n}</span>
+            </div>`).join("")}
+          </div>
+          <p class="note" style="margin-top:20px">
+            ${t100} des coasters de ta collection connue sont dans le top 100 mondial.
+            Le compteur officiel de ton profil en annonce ${topDone} : l'extrait ne couvre
+            qu'une partie de tes ${num(credits)} credits.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+${foot(`Credits, parcs, pays et couverture du top 100 sont les statistiques réelles publiées sur le
+profil. Le goût, l'empreinte et les tracés sont calculés sur le top personnel et les notes présents
+dans l'extrait. Photographies : Unsplash.`)}
+`;
+</script>
+</body>
+</html>

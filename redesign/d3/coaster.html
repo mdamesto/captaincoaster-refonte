@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensation — Steel Vengeance · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Funnel+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .scrub { position: relative; cursor: ew-resize; touch-action: none; }
+  .scrub input[type="range"] {
+    position: absolute; inset: auto 0 -6px 0; width: 100%; margin: 0;
+    appearance: none; background: transparent; height: 26px;
+  }
+  .scrub input[type="range"]::-webkit-slider-thumb {
+    appearance: none; width: 16px; height: 16px; border-radius: 999px;
+    background: var(--haze); border: 3px solid var(--night); cursor: grab;
+  }
+  .scrub input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 999px; background: var(--haze);
+    border: 3px solid var(--night); cursor: grab;
+  }
+  .specs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  .specs div span { display: block; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+  .specs div b { display: block; font-family: var(--ff-display); font-weight: 600; font-size: clamp(22px, 2.6vw, 30px); margin-top: 5px; }
+  .gal { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .gal figure { position: relative; margin: 0; border-radius: 12px; overflow: hidden; }
+  .gal img { width: 100%; aspect-ratio: 3/2; object-fit: cover; }
+  .gal figcaption {
+    position: absolute; inset: auto 0 0 0; padding: 22px 12px 10px; font-size: 11.5px;
+    display: flex; justify-content: space-between; gap: 8px;
+    background: linear-gradient(180deg, rgba(23,28,46,0), rgba(23,28,46,.9));
+  }
+  .review { padding: 22px 0; border-bottom: 1px solid var(--line); }
+  .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .review-head img { width: 36px; height: 36px; border-radius: 999px; }
+  .stars { color: var(--amber); letter-spacing: 2px; font-size: 14px; }
+  @media (max-width: 900px) {
+    .specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .gal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, floatbar, foot, photo, HERO, trace, tracePath, traceAt, sensations, tagFr, esc, num, avatar, TRACE_NOTE } from "./d3.js";
+import { coasterView, HERO_COASTER_ID } from "../assets/data.js";
+
+const d = await getData();
+const c = coasterView(d, HERO_COASTER_ID);
+const t = trace(c);
+const s = sensations(d, c.id);
+const sMax = Math.max(1, ...s.pos.map(([, n]) => n));
+
+const W = 1000, H = 260, PAD = 14;
+const path = tracePath(t, W, H, PAD);
+const yOf = (h) => PAD + (H - PAD * 2) * (1 - h / t.H);
+
+document.getElementById("app").innerHTML = `
+${floatbar("ranking")}
+<main id="main">
+
+  <!-- --------------------------------------------------------------- hero -->
+  <section class="hero">
+    <img class="hero-img" src="${HERO.coaster}" alt="" fetchpriority="high" width="1920" height="1279">
+    <span class="credit">Photo Unsplash</span>
+    <div class="hero-in">
+      <div class="wrap-wide">
+        <div class="eyebrow eyebrow-amber">${esc(c.park?.name || "")} · ${esc(c.country)}</div>
+        <h1 style="margin-top:16px">${esc(c.name)}</h1>
+        <div style="display:flex;gap:clamp(20px,4vw,54px);align-items:flex-end;flex-wrap:wrap;margin-top:26px">
+          <div>
+            <div class="eyebrow">Score mondial</div>
+            <div class="num" style="font-size:clamp(40px,5.4vw,64px);color:var(--amber);line-height:1;margin-top:6px">${c.score.toFixed(1)}</div>
+          </div>
+          <div>
+            <div class="eyebrow">Rang</div>
+            <div class="num" style="font-size:clamp(40px,5.4vw,64px);line-height:1;margin-top:6px">#${c.rank}</div>
+          </div>
+          <p class="lede" style="flex:1;min-width:min(320px,100%);margin:0">
+            ${esc(c.manufacturer || "")}${c.year ? `, ${c.year}` : ""}. ${num(c.summary?.reviewCount || c.reviews.length)} riders l'ont raconté.
+          </p>
+          <a class="btn btn-amber" href="#trace">Parcourir le tracé</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- -------------------------------------------------------------- le tracé -->
+  <section class="sect" id="trace">
+    <div class="wrap-wide">
+      <div class="sect-head">
+        <div>
+          <div class="eyebrow eyebrow-amber">La donnée que personne ne montre</div>
+          <h2 style="margin-top:10px">Le tracé</h2>
+        </div>
+        <p class="dim" style="max-width:44ch;margin:0;font-size:14.5px">
+          Fais glisser le long du parcours. La vitesse en chaque point découle de
+          la hauteur — c'est de la conservation d'énergie, pas une illustration.
+        </p>
+      </div>
+
+      <div class="trace scrub" id="scrub">
+        <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Profil du parcours de ${esc(c.name)}">
+          <defs>
+            <linearGradient id="traceGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(243,161,84,.26)"/>
+              <stop offset="100%" stop-color="rgba(243,161,84,0)"/>
+            </linearGradient>
+          </defs>
+          <line class="trace-ground" x1="0" y1="${H - PAD}" x2="${W}" y2="${H - PAD}"/>
+          <path class="trace-fill" d="${path} L ${W} ${H - PAD} L 0 ${H - PAD} Z"/>
+          <path class="trace-line" d="${path}"/>
+          ${t.inversions.map((x) => {
+            const p = traceAt(t, x, W, H, PAD);
+            return `<circle class="trace-inv" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7"/>`;
+          }).join("")}
+          <line class="trace-cursor" id="cursor" x1="0" y1="0" x2="0" y2="${H - PAD}"/>
+          <circle class="trace-dot" id="dot" cx="0" cy="0" r="5"/>
+        </svg>
+        <input type="range" id="range" min="0" max="1000" value="300"
+               aria-label="Position le long du parcours">
+      </div>
+
+      <div class="trace-readout">
+        <div><span>Distance</span><b id="r-dist">—</b></div>
+        <div><span>Hauteur</span><b id="r-height">—</b></div>
+        <div><span>Vitesse</span><b id="r-speed">—</b></div>
+        <div><span>Inversions</span><b>${c.inversions ?? 0}</b></div>
+        <div><span>Longueur totale</span><b>${c.lengthM ? num(c.lengthM) + " m" : "—"}</b></div>
+      </div>
+
+      <p class="note" style="margin-top:26px">${TRACE_NOTE}</p>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------- profil de sensation -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="cols-2" style="align-items:start">
+
+        <div>
+          <div class="sect-head" style="margin-bottom:22px">
+            <div>
+              <div class="eyebrow eyebrow-amber">Ce que les riders ressentent</div>
+              <h2 style="margin-top:10px">Profil de sensation</h2>
+            </div>
+          </div>
+          <div class="sensa">
+            ${s.pos.slice(0, 8).map(([tag, n]) => `
+            <div class="sensa-row">
+              <span style="font-size:14.5px">${esc(tagFr(tag))}</span>
+              <span class="sensa-track"><span class="sensa-fill" style="width:${(n / sMax) * 100}%"></span></span>
+              <span class="num" style="font-size:14px;text-align:right">${n}</span>
+            </div>`).join("")}
+          </div>
+          ${s.neg.length ? `
+          <div class="eyebrow" style="margin:26px 0 12px">Ce qui gêne</div>
+          <div class="sensa">
+            ${s.neg.slice(0, 4).map(([tag, n]) => `
+            <div class="sensa-row">
+              <span style="font-size:14.5px;color:var(--dim)">${esc(tagFr(tag))}</span>
+              <span class="sensa-track"><span class="sensa-fill cold" style="width:${(n / sMax) * 100}%"></span></span>
+              <span class="num" style="font-size:14px;text-align:right;color:var(--dim)">${n}</span>
+            </div>`).join("")}
+          </div>` : ""}
+          <p class="note" style="margin-top:24px">
+            Chaque avis du site est déjà étiqueté par sensation. Ce vocabulaire est
+            l'actif le plus singulier de Captain Coaster — et il n'est agrégé nulle part.
+            Ici, ${s.reviews} avis dépouillés.
+          </p>
+        </div>
+
+        <div>
+          <div class="sect-head" style="margin-bottom:22px">
+            <div>
+              <div class="eyebrow">Caractéristiques</div>
+              <h2 style="margin-top:10px">La fiche</h2>
+            </div>
+          </div>
+          <div class="specs">
+            <div><span>Hauteur</span><b>${c.heightM ? c.heightM + " m" : "—"}</b></div>
+            <div><span>Vitesse</span><b>${c.speedKmh ? c.speedKmh + " km/h" : "—"}</b></div>
+            <div><span>Longueur</span><b>${c.lengthM ? num(c.lengthM) + " m" : "—"}</b></div>
+            <div><span>Inversions</span><b>${c.inversions ?? "—"}</b></div>
+          </div>
+          ${c.summary ? `
+          <div class="panel" style="margin-top:24px">
+            <div class="eyebrow eyebrow-amber">Synthèse de ${num(c.summary.reviewCount)} avis</div>
+            <p style="margin:14px 0 0;font-size:16.5px;line-height:1.66">${esc(c.summary.text)}</p>
+            <div class="pills" style="margin-top:18px">
+              ${c.summary.highlights.map((h) => `<span class="tag tag-on">${esc(h)}</span>`).join("")}
+              ${c.summary.concerns.map((h) => `<span class="tag">${esc(h)}</span>`).join("")}
+            </div>
+          </div>` : ""}
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- galerie -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="sect-head">
+        <h2>Galerie</h2>
+        <span class="dim" style="font-size:14px">${c.photos.length} photos · ${num(c.photos.reduce((a, p) => a + p.likes, 0))} likes</span>
+      </div>
+      <div class="gal">
+        ${c.photos.slice(0, 8).map((p) => `
+        <figure>
+          <img src="${photo(p.id)}" alt="" loading="lazy">
+          <figcaption><span class="dim">${esc(p.credit)}</span><span style="color:var(--amber)">♥ ${p.likes}</span></figcaption>
+        </figure>`).join("")}
+      </div>
+      <p class="note" style="margin-top:18px">
+        La photo d'un contributeur n'est jamais retouchée ni filtrée : le traitement
+        duotone est réservé aux surfaces de chrome.
+      </p>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- avis -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="cols-2" style="align-items:start">
+        <div>
+          <div class="sect-head"><h2>Les récits</h2></div>
+          ${c.reviews.slice(0, 5).map((r) => `
+          <article class="review">
+            <div class="review-head">
+              <img src="${avatar(r.userName, 72)}" alt="">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600">${esc(r.userName)}</div>
+                <div class="dim" style="font-size:13px">${esc(r.ago)}</div>
+              </div>
+              <span class="stars">${"★".repeat(Math.floor(r.rating)) + (r.rating % 1 ? "½" : "")}</span>
+            </div>
+            ${r.text ? `<p style="margin:0 0 12px;font-size:16.5px;line-height:1.66">${esc(r.text)}</p>` : ""}
+            <div class="pills">
+              ${(r.pros || []).map((p) => `<span class="tag tag-on">${esc(tagFr(p))}</span>`).join("")}
+              ${(r.cons || []).map((p) => `<span class="tag">${esc(tagFr(p))}</span>`).join("")}
+            </div>
+          </article>`).join("")}
+        </div>
+
+        <div>
+          <div class="sect-head"><h2>Dans le même parc</h2></div>
+          <div class="wall" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">
+            ${c.siblings.slice(0, 6).map((x) => `
+            <a class="card" href="#" style="aspect-ratio:3/4">
+              <img src="${photo(x.id)}" alt="" loading="lazy">
+              ${x.rank ? `<span class="card-rank">#${x.rank}</span>` : ""}
+              ${x.score ? `<span class="card-score">${x.score.toFixed(1)}</span>` : ""}
+              <span class="card-in">
+                <span class="card-name" style="font-size:17px">${esc(x.name)}</span>
+                <span class="card-sub">${esc(x.manufacturer || "—")}${x.year ? ` · ${x.year}` : ""}</span>
+              </span>
+            </a>`).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+${foot(`Score, rang, avis, étiquettes et synthèse proviennent du jeu de données réel du site.
+Le tracé est dérivé des caractéristiques publiées. Photographies : Unsplash.`)}
+`;
+
+/* ------------------------------------------------------------- le scrubber */
+
+const scrub = document.getElementById("scrub");
+const range = document.getElementById("range");
+const cursor = document.getElementById("cursor");
+const dot = document.getElementById("dot");
+const rDist = document.getElementById("r-dist");
+const rHeight = document.getElementById("r-height");
+const rSpeed = document.getElementById("r-speed");
+
+function update(ratio) {
+  const p = traceAt(t, ratio, W, H, PAD);
+  cursor.setAttribute("x1", p.x.toFixed(1));
+  cursor.setAttribute("x2", p.x.toFixed(1));
+  cursor.setAttribute("y1", p.y.toFixed(1));
+  dot.setAttribute("cx", p.x.toFixed(1));
+  dot.setAttribute("cy", p.y.toFixed(1));
+  rDist.textContent = num(Math.round(p.distance)) + " m";
+  rHeight.textContent = Math.round(p.height) + " m";
+  rSpeed.textContent = Math.round(p.speed) + " km/h";
+}
+
+range.addEventListener("input", () => update(range.value / 1000));
+
+scrub.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "mouse" && e.buttons === 0 && e.target === range) return;
+  const r = scrub.getBoundingClientRect();
+  const ratio = (e.clientX - r.left) / r.width;
+  range.value = Math.round(Math.max(0, Math.min(1, ratio)) * 1000);
+  update(ratio);
+});
+
+update(0.3);
+</script>
+</body>
+</html>

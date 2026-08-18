@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit — Accueil · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist+Mono:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, rail, foot, duelBar, duelRecord, photo, HERO, esc, num, avatar } from "./d1.js";
+import { activityFeed, topRanking, COUNTERS } from "../assets/data.js";
+
+const d = await getData();
+const field = d.ranking.length;
+const top = topRanking(d, 400);
+const app = document.getElementById("app");
+
+/* ---------------------------------------------------------------- le n°1 */
+
+const one = top[0];
+const rec1 = duelRecord(one.score, field);
+
+/* ------------------------------------------------------- tableau des nations */
+// Un championnat a un classement par nation. Celui-ci se déduit entièrement du
+// classement mondial : combien de coasters chaque pays place dans le top 10,
+// le top 100, et quel est son meilleur représentant.
+const nations = (() => {
+  const by = new Map();
+  for (const c of d.ranking) {
+    if (!by.has(c.country)) by.set(c.country, { country: c.country, t10: 0, t100: 0, ranked: 0, best: c });
+    const n = by.get(c.country);
+    n.ranked++;
+    if (c.rank <= 10) n.t10++;
+    if (c.rank <= 100) n.t100++;
+    if (c.rank < n.best.rank) n.best = c;
+  }
+  return [...by.values()].sort((a, b) => b.t10 - a.t10 || b.t100 - a.t100 || a.best.rank - b.best.rank);
+})();
+
+/* --------------------------------------------------- angles éditoriaux réels */
+const angles = [
+  {
+    label: "Ouverts depuis 2023",
+    list: top.filter((c) => (c.year || 0) >= 2023).slice(0, 5),
+    metric: (c) => `${c.year}`,
+  },
+  {
+    label: "Les plus hauts",
+    list: [...top].filter((c) => c.heightM).sort((a, b) => b.heightM - a.heightM).slice(0, 5),
+    metric: (c) => `${c.heightM} m`,
+  },
+  {
+    label: "Les plus rapides",
+    list: [...top].filter((c) => c.speedKmh).sort((a, b) => b.speedKmh - a.speedKmh).slice(0, 5),
+    metric: (c) => `${c.speedKmh} km/h`,
+  },
+  {
+    label: "Le plus d'inversions",
+    list: [...top].filter((c) => c.inversions).sort((a, b) => b.inversions - a.inversions).slice(0, 5),
+    metric: (c) => `${c.inversions} inv.`,
+  },
+];
+
+const feed = activityFeed(d, 8);
+
+app.innerHTML = `
+${rail("home")}
+
+<main id="main">
+
+  <!-- ------------------------------------------------ le champion du monde -->
+  <section class="hero">
+    <img class="hero-img" src="${HERO.home}" alt="" fetchpriority="high" width="1920" height="1279">
+    <div class="hero-in">
+      <div class="wrap-wide">
+        <div class="label label-signal" style="margin-bottom:14px">Champion du monde en titre</div>
+        <div class="hero-rank">01</div>
+        <h1 class="hero-name" style="margin-top:6px">${esc(one.name)}</h1>
+        <div style="color:var(--chalk);opacity:.75;font-size:16px;margin-top:10px">
+          ${esc(one.park?.name || "")} · ${esc(one.country)} · ${esc(one.manufacturer || "")}
+        </div>
+
+        <div style="display:flex;gap:44px;flex-wrap:wrap;align-items:flex-end;margin-top:34px">
+          <div>
+            <div class="label" style="margin-bottom:8px">Score</div>
+            <div class="score" style="font-size:clamp(52px,8vw,96px)">${one.score.toFixed(1)}<sup>%</sup></div>
+          </div>
+          <div style="min-width:min(340px,100%);flex:1">
+            <div class="label" style="margin-bottom:8px">Palmarès en duels</div>
+            ${duelBar(rec1)}
+          </div>
+          <a class="btn btn-signal" href="ranking.html">Voir le classement</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ le duel -->
+  <section class="sect" id="duel">
+    <div class="wrap">
+      <div class="sect-head">
+        <div>
+          <div class="label label-signal">Le mécanisme du classement, rendu jouable</div>
+          <h2 style="margin-top:8px">Départage-les</h2>
+        </div>
+        <div class="mono muted" style="font-size:12px">← →&nbsp; au clavier</div>
+      </div>
+
+      <p class="muted" style="max-width:66ch;margin-bottom:24px">
+        Le classement mondial est produit par des duels entre coasters. Aujourd'hui ils sont
+        déduits en silence de tes notes. Ici tu les joues : chaque réponse pèse directement
+        sur le classement, et prend deux secondes.
+      </p>
+
+      <div id="duel-slot"></div>
+
+      <div id="duel-verdict" class="note" style="margin-top:20px;visibility:hidden">&nbsp;</div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------- le tableau des nations -->
+  <section class="sect" style="background:var(--asphalt);border-block:1px solid var(--line)">
+    <div class="wrap">
+      <div class="sect-head" style="border-color:var(--line-strong)">
+        <div>
+          <div class="label">${nations.length} pays représentés</div>
+          <h2 style="margin-top:8px">Tableau des nations</h2>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="map.html">Voir sur la carte</a>
+      </div>
+      <p class="muted" style="max-width:66ch;margin-top:-4px;margin-bottom:22px">
+        Un championnat se lit aussi par équipes. Combien de coasters chaque pays place
+        dans le top 10, dans le top 100, et qui est son meilleur représentant.
+      </p>
+      <table class="board">
+        <thead>
+          <tr>
+            <th class="c-rank">Rg</th>
+            <th>Pays</th>
+            <th style="text-align:right">Top 10</th>
+            <th style="text-align:right">Top 100</th>
+            <th style="text-align:right" class="c-hide">Classés</th>
+            <th class="c-hide">Meilleur représentant</th>
+            <th style="text-align:right">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${nations.slice(0, 10).map((n, i) => `
+          <tr>
+            <td class="c-rank"><span class="rank-n" style="font-size:21px;color:${i === 0 ? "var(--signal)" : "var(--steel-dim)"}">${String(i + 1).padStart(2, "0")}</span></td>
+            <td><span class="row-name">${esc(n.country)}</span></td>
+            <td class="c-num" style="font-size:15px;color:${n.t10 ? "var(--signal)" : "var(--steel-dim)"}">${n.t10 || "—"}</td>
+            <td class="c-num" style="font-size:15px">${n.t100 || "—"}</td>
+            <td class="c-num c-hide muted">${num(n.ranked)}</td>
+            <td class="c-hide">
+              <span class="mono muted" style="font-size:11px">#${n.best.rank}</span>
+              <span style="font-weight:600;margin-left:8px">${esc(n.best.name)}</span>
+              <span class="row-sub" style="display:inline;margin-left:6px">${esc(n.best.park?.name || "")}</span>
+            </td>
+            <td class="c-num"><span class="row-score" style="font-size:19px">${n.best.score.toFixed(1)}</span></td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ angles + verdicts -->
+  <section class="sect">
+    <div class="wrap">
+      <div class="cols-2" style="gap:44px;align-items:start">
+
+        <div>
+          <div class="sect-head"><h2>Portes d'entrée</h2></div>
+          <div class="cols-2" style="gap:2px">
+            ${angles.map((a) => `
+            <div class="panel" style="border-radius:0">
+              <div class="label" style="margin-bottom:12px">${a.label}</div>
+              <div class="grid">
+                ${a.list.map((c) => `
+                <div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line)">
+                  <span class="mono muted" style="font-size:11px;width:34px;flex:none">#${c.rank}</span>
+                  <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span>
+                  <span class="mono" style="font-size:12px;color:var(--signal)">${a.metric(c)}</span>
+                </div>`).join("")}
+              </div>
+            </div>`).join("")}
+          </div>
+        </div>
+
+        <div>
+          <div class="sect-head">
+            <h2>Derniers verdicts</h2>
+            <span class="mono muted" style="font-size:12px">${num(COUNTERS.reviews)} avis au total</span>
+          </div>
+          <div class="ticker">
+            ${feed.map((f) => `
+            <div class="ticker-row">
+              <img class="avatar" src="${avatar(f.user.name, 68)}" alt="">
+              <div style="min-width:0">
+                <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                  <b style="font-weight:700">${esc(f.user.name)}</b>
+                  <span class="muted"> a noté </span>
+                  <b style="font-weight:700">${esc(f.coaster.name)}</b>
+                </div>
+                <div class="row-sub">${esc(f.park?.name || "")} · ${esc(f.riddenAt)}</div>
+              </div>
+              <div class="mono" style="font-size:15px;color:var(--signal)">${f.value.toFixed(1)}</div>
+            </div>`).join("")}
+          </div>
+
+          <div class="panel" style="margin-top:2px;display:flex;gap:26px;flex-wrap:wrap">
+            ${[["Coasters", COUNTERS.coasters], ["Classés", COUNTERS.ranked], ["Riders", COUNTERS.riders], ["Avis", COUNTERS.reviews]]
+              .map(([k, v]) => `<div><div class="label">${k}</div><div class="mono" style="font-size:21px;margin-top:4px">${num(v)}</div></div>`)
+              .join("")}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+${foot(`Le palmarès en duels est calculé à partir de la définition publiée par Captain Coaster :
+le score est la proportion de duels gagnés face aux ${num(field - 1)} autres coasters classés de cet extrait.
+Photographies : Unsplash (voir <code>redesign/assets/img/CREDITS.md</code>).`)}
+`;
+
+/* ------------------------------------------------------------- le duel joué */
+
+const pool = top.slice(0, 250);
+const slot = document.getElementById("duel-slot");
+const verdict = document.getElementById("duel-verdict");
+let pair = null;
+let seedIndex = 0;
+
+function nextPair() {
+  // Paires déterministes : on avance dans la liste, on oppose des coasters
+  // d'écart de rang moyen pour que le choix reste réellement disputé.
+  const a = pool[(seedIndex * 7) % pool.length];
+  const b = pool[(seedIndex * 7 + 23) % pool.length];
+  seedIndex++;
+  return a.id === b.id ? nextPair() : [a, b];
+}
+
+function card(c, key) {
+  return `
+<button class="duel-card" data-id="${c.id}">
+  <span class="duel-key mono">${key}</span>
+  <img src="${photo(c.id)}" alt="" width="800" height="600" loading="lazy">
+  <span class="duel-cap" style="display:block">
+    <span class="row-name" style="display:block">${esc(c.name)}</span>
+    <span class="row-sub" style="display:block">${esc(c.park?.name || "")} · ${esc(c.country)}</span>
+  </span>
+</button>`;
+}
+
+function draw() {
+  pair = nextPair();
+  slot.innerHTML = `
+<div class="duel">
+  ${card(pair[0], "←")}
+  <div class="duel-vs">VS</div>
+  ${card(pair[1], "→")}
+</div>`;
+  verdict.style.visibility = "hidden";
+}
+
+function choose(id) {
+  const picked = pair.find((c) => c.id === id);
+  const other = pair.find((c) => c.id !== id);
+  const communityWinner = picked.score >= other.score ? picked : other;
+  const agrees = communityWinner.id === picked.id;
+  verdict.style.visibility = "visible";
+  verdict.innerHTML = agrees
+    ? `Tu as choisi <b>${esc(picked.name)}</b>. La communauté aussi : #${picked.rank} contre #${other.rank}.`
+    : `Tu as choisi <b>${esc(picked.name)}</b> (#${picked.rank}). La communauté place <b>${esc(other.name)}</b> devant (#${other.rank}). Ton duel compte quand même.`;
+  setTimeout(draw, 1600);
+}
+
+slot.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-id]");
+  if (b) choose(Number(b.dataset.id));
+});
+
+document.addEventListener("keydown", (e) => {
+  if (!pair) return;
+  if (e.key === "ArrowLeft") choose(pair[0].id);
+  if (e.key === "ArrowRight") choose(pair[1].id);
+});
+
+draw();
+</script>
+</body>
+</html>

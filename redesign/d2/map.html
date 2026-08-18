@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet — Passeport · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Inclusive+Sans:ital,wght@0,300..700;1,300..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/js/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .passport { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 0; border-top: 1px solid var(--rule); }
+  .pass-side { border-right: 1px solid var(--rule); display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 74px); }
+  .pass-side-head { padding: 20px 24px 14px; border-bottom: 1px solid var(--rule); }
+  .pass-filters { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+  .pass-list { overflow-y: auto; flex: 1; min-height: 0; }
+  .countryrow {
+    display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 14px; align-items: center;
+    width: 100%; text-align: left; padding: 12px 24px; border-bottom: 1px solid var(--rule);
+  }
+  .countryrow:hover, .countryrow[aria-current="true"] { background: var(--paper-2); }
+  .countryrow[aria-current="true"] { box-shadow: inset 3px 0 0 var(--ticket); }
+  #map { height: calc(100vh - 74px); min-height: 460px; background: var(--paper-3); }
+
+  .leaflet-container { background: var(--paper-3); font-family: var(--ff-body); }
+  .leaflet-popup-content-wrapper { background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-2); border-radius: 3px; }
+  .leaflet-popup-tip { background: var(--paper-2); border: 1px solid var(--rule-2); }
+  .leaflet-popup-content { margin: 14px 16px; min-width: 210px; }
+  .leaflet-control-zoom a { background: var(--paper-2); color: var(--ink); border-color: var(--rule-2); }
+  .leaflet-control-attribution { background: rgba(246,243,234,.86); color: var(--ink-3); }
+  .maplegend {
+    position: absolute; right: 14px; bottom: 26px; z-index: 500; background: rgba(246,243,234,.94);
+    border: 1px solid var(--rule-2); border-radius: 3px; padding: 13px 15px; display: grid; gap: 7px;
+  }
+  .maplegend div { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+  .maplegend i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+
+  @media (max-width: 1000px) {
+    .passport { grid-template-columns: minmax(0, 1fr); }
+    .pass-side { max-height: none; border-right: 0; border-bottom: 1px solid var(--rule); }
+    .pass-list { max-height: 42vh; }
+    #map { height: 60vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../../assets/js/vendor/leaflet/leaflet.js"></script>
+<script type="module">
+import { getData, masthead, foot, esc, num } from "./d2.js";
+import { riderView, HERO_USER_ID, mapParks } from "../assets/data.js";
+
+const d = await getData();
+const u = riderView(d, HERO_USER_ID);
+const taxo = await fetch(new URL("../../data/taxonomies.json", import.meta.url)).then((r) => r.json());
+
+const known = new Set([...u.ratings.map((r) => r.coasterId), ...u.topItems.map((c) => c.id)]);
+const visitedParks = new Set([...known].map((id) => d.coasterById.get(id)?.parkId).filter(Boolean));
+const stampedCountries = new Set(
+  [...known].map((id) => d.coasterById.get(id)?.country).filter(Boolean)
+);
+
+const parks = mapParks(d).filter((p) => p.best);
+
+/* Un pays = une page du passeport : combien de parcs, combien de tamponnés. */
+const countries = (() => {
+  const m = new Map();
+  for (const p of parks) {
+    const name = p.country || p.best.country;
+    if (!name) continue;
+    if (!m.has(name)) m.set(name, { name, parks: 0, done: 0, coasters: 0, best: p.best, bestRank: p.bestRank, lat: p.lat, lng: p.lng });
+    const e = m.get(name);
+    e.parks++;
+    e.coasters += p.coasterCount || 0;
+    if (visitedParks.has(p.id)) e.done++;
+    if (p.bestRank < e.bestRank) { e.best = p.best; e.bestRank = p.bestRank; e.lat = p.lat; e.lng = p.lng; }
+  }
+  return [...m.values()].sort((a, b) => b.done - a.done || b.parks - a.parks);
+})();
+
+const FILTERS = [
+  { key: "all", label: "Tous les pays", test: () => true },
+  { key: "done", label: "Tamponnés", test: (c) => stampedCountries.has(c.name) },
+  { key: "todo", label: "À tamponner", test: (c) => !stampedCountries.has(c.name) },
+];
+let active = "all";
+
+const stamped = countries.filter((c) => stampedCountries.has(c.name));
+const nextUp = countries.filter((c) => !stampedCountries.has(c.name)).slice(0, 4);
+
+document.getElementById("app").innerHTML = `
+${masthead("map")}
+<main id="main">
+  <div class="wrap" style="padding:clamp(28px,4vw,46px) 0 26px">
+    <div class="cols-2" style="align-items:end">
+      <div>
+        <div class="cap cap-ticket">Le carnet, vu du dessus</div>
+        <h1 style="margin-top:12px">Passeport</h1>
+        <p class="lede" style="margin-top:14px">
+          Chaque pays où tu as un credit se tamponne. Le reste de la carte, c'est
+          la liste de ce qu'il te reste à visiter.
+        </p>
+      </div>
+      <div style="display:flex;gap:28px;justify-content:flex-end;flex-wrap:wrap">
+        <div><div class="cap">Pays tamponnés</div><div class="serif" style="font-weight:800;font-size:44px;line-height:1">${num(u.stats?.countries || stamped.length)}</div></div>
+        <div><div class="cap">Sur</div><div class="serif" style="font-weight:800;font-size:44px;line-height:1;color:var(--ink-3)">${num(taxo.country.length)}</div></div>
+      </div>
+    </div>
+
+    <div class="stamps" style="margin-top:30px">
+      ${stamped.slice(0, 9).map((c) => `
+      <div class="stamp">
+        <b>${esc(c.name)}</b>
+        <span>${c.done} parc${c.done > 1 ? "s" : ""}</span>
+      </div>`).join("")}
+      ${nextUp.map((c) => `
+      <div class="stamp stamp-todo">
+        <b>${esc(c.name)}</b>
+        <span>à faire</span>
+      </div>`).join("")}
+    </div>
+  </div>
+
+  <div class="passport">
+    <aside class="pass-side">
+      <div class="pass-side-head">
+        <div class="cap">Pages du passeport</div>
+        <p class="gauge-note" style="margin:8px 0 0">
+          Trié par nombre de parcs déjà visités. Clique un pays pour l'ouvrir sur la carte.
+        </p>
+      </div>
+      <div class="pass-filters" id="pfilters"></div>
+      <div class="pass-list" id="plist"></div>
+    </aside>
+    <div style="position:relative">
+      <div id="map"></div>
+      <div class="maplegend">
+        <div><i style="background:var(--green)"></i>Parc où tu as un credit</div>
+        <div><i style="background:var(--ticket)"></i>Parc avec un top 100</div>
+        <div><i style="background:var(--rule-2)"></i>Parc classé, pas encore fait</div>
+      </div>
+    </div>
+  </div>
+</main>
+${foot(`Le nombre de pays tamponnés est la statistique réelle du profil (${esc(String(u.stats?.countries || ""))}).
+Le détail par parc s'appuie sur les notes et le top personnel présents dans l'extrait, soit une partie
+seulement des 1 852 credits de ce rider.`)}
+`;
+
+/* ------------------------------------------------------------------- carte */
+
+const map = L.map("map", { zoomControl: true, worldCopyJump: true }).setView([46, 6], 4);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  attribution: "© OpenStreetMap contributors © CARTO",
+  subdomains: "abcd",
+  maxZoom: 19,
+}).addTo(map);
+
+const layer = L.layerGroup().addTo(map);
+const markers = new Map();
+
+function color(p) {
+  if (visitedParks.has(p.id)) return "#2f6b4f";
+  if (p.bestRank <= 100) return "#c4362b";
+  return "#b9b1a0";
+}
+
+function popup(p) {
+  const list = (d.coastersByPark.get(p.id) || [])
+    .filter((c) => typeof c.score === "number")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+  const done = list.filter((c) => known.has(c.id)).length;
+  return `
+<div class="cap cap-ticket">${esc(p.country || p.best.country || "")}</div>
+<div class="serif" style="font-weight:700;font-size:17px;margin:5px 0 8px">${esc(p.name)}</div>
+${list.map((c) => `
+<div style="display:flex;gap:9px;align-items:baseline;padding:4px 0;border-top:1px solid var(--rule)">
+  <span style="width:14px;color:${known.has(c.id) ? "var(--green)" : "var(--rule-2)"}">${known.has(c.id) ? "✓" : "○"}</span>
+  <span class="mono dim" style="font-size:11px;width:38px">#${d.rankById.get(c.id)}</span>
+  <span style="flex:1;font-size:13.5px">${esc(c.name)}</span>
+  <span class="mono" style="font-size:12px;font-weight:700">${c.score.toFixed(1)}</span>
+</div>`).join("")}
+<div class="gauge-note" style="margin-top:9px">${done} sur ${list.length} classés dans ton carnet</div>`;
+}
+
+function drawMap(list) {
+  layer.clearLayers();
+  markers.clear();
+  for (const p of list) {
+    const m = L.circleMarker([p.lat, p.lng], {
+      radius: visitedParks.has(p.id) ? 8 : p.bestRank <= 100 ? 7 : 5,
+      color: "#1c2b26",
+      weight: visitedParks.has(p.id) ? 1.4 : 0.6,
+      fillColor: color(p),
+      fillOpacity: 0.9,
+    }).bindPopup(popup(p));
+    m.addTo(layer);
+    markers.set(p.id, m);
+  }
+}
+
+/* ------------------------------------------------------------------ panneau */
+
+const pfilters = document.getElementById("pfilters");
+const plist = document.getElementById("plist");
+
+function render() {
+  const f = FILTERS.find((x) => x.key === active);
+  const rows = countries.filter(f.test);
+
+  pfilters.innerHTML = FILTERS.map(
+    (x) => `<button class="legend-item" data-f="${x.key}" aria-pressed="${x.key === active}">${x.label}
+    <span class="n">${num(countries.filter(x.test).length)}</span></button>`
+  ).join("");
+
+  plist.innerHTML = rows.map((c) => {
+    const pct = (c.done / c.parks) * 100;
+    return `
+<button class="countryrow" data-c="${esc(c.name)}">
+  <span style="min-width:0">
+    <span style="display:flex;align-items:center;gap:8px">
+      <span style="color:${stampedCountries.has(c.name) ? "var(--brass)" : "var(--rule-2)"}">${stampedCountries.has(c.name) ? "◉" : "○"}</span>
+      <span class="serif" style="font-weight:700;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</span>
+    </span>
+    <span class="entry-sub" style="margin-top:4px;display:block">${num(c.parks)} parcs classés · meilleur #${c.bestRank} ${esc(c.best.name)}</span>
+  </span>
+  <span>
+    <span class="gauge-track"><span class="gauge-fill" style="width:${pct}%;display:block;height:100%"></span></span>
+    <span class="mono dim" style="font-size:11px;display:block;margin-top:5px;text-align:right">${c.done} / ${c.parks}</span>
+  </span>
+</button>`;
+  }).join("");
+
+  const names = new Set(rows.map((c) => c.name));
+  drawMap(parks.filter((p) => names.has(p.country || p.best.country)));
+}
+
+pfilters.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-f]");
+  if (!b) return;
+  active = b.dataset.f;
+  render();
+});
+
+plist.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-c]");
+  if (!b) return;
+  const c = countries.find((x) => x.name === b.dataset.c);
+  plist.querySelectorAll(".countryrow").forEach((r) => r.removeAttribute("aria-current"));
+  b.setAttribute("aria-current", "true");
+  map.flyTo([c.lat, c.lng], 6, { duration: 0.7 });
+});
+
+render();
+</script>
+</body>
+</html>

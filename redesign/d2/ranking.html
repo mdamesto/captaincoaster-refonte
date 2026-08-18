@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet — L'almanach · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Inclusive+Sans:ital,wght@0,300..700;1,300..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .toolbar { position: sticky; top: 0; z-index: 20; background: var(--paper); border-bottom: 1.5px solid var(--ink); }
+  .toolbar-in { display: flex; align-items: center; gap: 10px; padding: 12px 0; flex-wrap: wrap; }
+  .drop { position: relative; }
+  .drop-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 240px; max-height: 320px;
+    overflow-y: auto; background: var(--paper-2); border: 1px solid var(--rule-2); border-radius: 3px;
+    padding: 6px; box-shadow: 0 14px 30px rgba(28,43,38,.16);
+  }
+  .drop-menu[hidden] { display: none; }
+  .drop-opt { display: flex; width: 100%; justify-content: space-between; gap: 14px; padding: 7px 10px; border-radius: 2px; font-size: 13.5px; text-align: left; }
+  .drop-opt:hover { background: var(--paper-3); }
+  .drop-opt[aria-selected="true"] { color: var(--ticket); font-weight: 700; }
+  .drop-opt .n { font-family: var(--ff-mono); font-size: 11.5px; color: var(--ink-3); }
+
+  .progress-strip {
+    display: flex; align-items: center; gap: 16px; padding: 14px 18px;
+    background: var(--paper-2); border: 1px solid var(--rule); border-radius: 3px; margin-bottom: 26px;
+  }
+  .page-title {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+    border-bottom: 1.5px solid var(--ink); padding-bottom: 8px; margin: 34px 0 0;
+  }
+  .pager { display: flex; gap: 6px; justify-content: center; align-items: center; padding: 32px 0 6px; flex-wrap: wrap; }
+  .pager button {
+    min-width: 38px; height: 36px; padding: 0 12px; border: 1px solid var(--rule-2); border-radius: 2px;
+    font-family: var(--ff-mono); font-size: 13px; background: var(--paper-2);
+  }
+  .pager button:hover { border-color: var(--ink); }
+  .pager button[aria-current="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .pager span { color: var(--ink-3); padding: 0 2px; }
+  @media (max-width: 760px) { .entry-meta { display: none !important; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, masthead, foot, photo, family, FAMILIES, material, esc, num } from "./d2.js";
+import { riderView, HERO_USER_ID } from "../assets/data.js";
+
+const d = await getData();
+const u = riderView(d, HERO_USER_ID);
+const all = d.ranking;
+const PER = 40;
+
+const known = new Set([...u.ratings.map((r) => r.coasterId), ...u.topItems.map((c) => c.id)]);
+
+/* ------------------------------------------------------------------ légende */
+
+function tally(fn) {
+  const m = new Map();
+  for (const c of all) {
+    const v = fn(c);
+    if (v == null || v === "") continue;
+    m.set(v, (m.get(v) || 0) + 1);
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+const DROPS = [
+  { key: "country", label: "Pays", get: (c) => c.country, opts: tally((c) => c.country) },
+  { key: "manufacturer", label: "Constructeur", get: (c) => c.manufacturer, opts: tally((c) => c.manufacturer) },
+  {
+    key: "decade",
+    label: "Décennie",
+    get: (c) => (c.year ? `${Math.floor(c.year / 10) * 10}s` : null),
+    opts: tally((c) => (c.year ? `${Math.floor(c.year / 10) * 10}s` : null)).sort((a, b) => b[0].localeCompare(a[0])),
+  },
+];
+
+/* Les familles réellement présentes dans le classement, les plus peuplées d'abord. */
+const FAMS = FAMILIES.map((f) => ({ ...f, n: all.filter((c) => c.seatingType === f.match).length }))
+  .filter((f) => f.n >= 23)
+  .sort((a, b) => b.n - a.n);
+
+const state = { drops: {}, fam: null, status: "all", page: 1 };
+
+function matches(c) {
+  for (const dp of DROPS) if (state.drops[dp.key] && dp.get(c) !== state.drops[dp.key]) return false;
+  if (state.fam) {
+    const f = FAMS.find((x) => x.key === state.fam);
+    if (c.seatingType !== f.match) return false;
+  }
+  if (state.status === "done" && !known.has(c.id)) return false;
+  if (state.status === "todo" && known.has(c.id)) return false;
+  return true;
+}
+
+/* -------------------------------------------------------------------- rendu */
+
+document.getElementById("app").innerHTML = `
+${masthead("ranking")}
+<main id="main">
+  <div class="wrap">
+    <div style="padding:clamp(30px,4.5vw,52px) 0 24px">
+      <div class="cap cap-ticket">Le classement mondial, en liste à cocher</div>
+      <h1 style="margin-top:12px">L'almanach</h1>
+      <p class="lede" style="margin-top:16px">
+        ${num(all.length)} coasters classés, du premier au dernier. Coche ce que tu as fait,
+        garde le reste sous les yeux. C'est le même classement que partout ailleurs — sauf
+        qu'ici il te concerne.
+      </p>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="wrap toolbar-in" id="bar"></div>
+  </div>
+
+  <div class="wrap">
+    <div style="padding:28px 0 10px">
+      <div class="progress-strip" id="progress"></div>
+      <div id="list"></div>
+      <div class="pager" id="pager"></div>
+    </div>
+  </div>
+</main>
+${foot(`« Fait » s'appuie sur les notes et le top personnel réellement présents dans l'extrait pour ce
+rider — 30 notes et 72 coasters classés sur ses 1 852 credits. En production, la coche refléterait la
+totalité de la collection.`)}
+`;
+
+const bar = document.getElementById("bar");
+const list = document.getElementById("list");
+const pager = document.getElementById("pager");
+const progress = document.getElementById("progress");
+
+function drawBar(count) {
+  const active = Object.values(state.drops).some(Boolean) || state.fam || state.status !== "all";
+  bar.innerHTML = `
+${DROPS.map((dp) => `
+<div class="drop" data-drop="${dp.key}">
+  <button class="legend-item" aria-expanded="false" aria-pressed="${state.drops[dp.key] ? "true" : "false"}">
+    ${state.drops[dp.key] ? esc(state.drops[dp.key]) : dp.label}
+    <span class="n">${state.drops[dp.key] ? "×" : "▾"}</span>
+  </button>
+  <div class="drop-menu" hidden>
+    ${dp.opts.slice(0, 40).map(([v, n]) => `
+      <button class="drop-opt" data-val="${esc(v)}" aria-selected="${state.drops[dp.key] === v}">
+        <span>${esc(v)}</span><span class="n">${num(n)}</span>
+      </button>`).join("")}
+  </div>
+</div>`).join("")}
+
+<span style="width:1px;height:26px;background:var(--rule-2);margin-inline:4px"></span>
+
+${FAMS.map((f) => `
+<button class="legend-item" data-fam="${f.key}" aria-pressed="${state.fam === f.key}">
+  <span class="fam fam-${f.key}" style="gap:6px;color:inherit">${f.label}</span>
+  <span class="n">${num(f.n)}</span>
+</button>`).join("")}
+
+<span style="width:1px;height:26px;background:var(--rule-2);margin-inline:4px"></span>
+
+<button class="legend-item" data-status="done" aria-pressed="${state.status === "done"}">Fait <span class="n">${num(all.filter((c) => known.has(c.id)).length)}</span></button>
+<button class="legend-item" data-status="todo" aria-pressed="${state.status === "todo"}">À faire</button>
+${active ? `<button class="legend-item" data-clear style="border-style:dashed">Tout effacer</button>` : ""}
+
+<span class="mono" style="margin-left:auto;font-size:13px" aria-live="polite">${num(count)} coasters</span>`;
+}
+
+function drawProgress(rows) {
+  const done = rows.filter((c) => known.has(c.id)).length;
+  const pct = rows.length ? (done / rows.length) * 100 : 0;
+  progress.innerHTML = `
+<span class="cap" style="flex:none">Sur cette sélection</span>
+<div class="gauge-track" style="flex:1"><div class="gauge-fill" style="width:${pct}%"></div></div>
+<span class="gauge-fig" style="flex:none">${num(done)}<span class="dim"> / ${num(rows.length)}</span></span>`;
+}
+
+function entry(c) {
+  const f = family(c);
+  const done = known.has(c.id);
+  return `
+<a class="entry" href="coaster.html" data-done="${done}">
+  <span class="check">✓</span>
+  <span class="entry-rank">${c.rank}</span>
+  <img class="entry-photo" src="${photo(c.id)}" alt="" loading="lazy" width="80" height="52">
+  <span style="min-width:0">
+    <span class="entry-name">${esc(c.name)}</span>
+    <span class="entry-sub">${esc(c.park?.name || "")} · ${esc(c.country)}${c.year ? ` · ${c.year}` : ""}</span>
+  </span>
+  <span style="display:flex;align-items:center;gap:16px">
+    <span class="entry-meta" style="display:flex;align-items:center;gap:12px">
+      ${material(c) && material(c) !== "Acier" ? `<span class="mono" style="font-size:11px;color:var(--fam-spinning)">${material(c)}</span>` : ""}
+      <span class="fam fam-${f.key}" style="min-width:104px">${f.label}</span>
+    </span>
+    <span class="entry-score">${c.score.toFixed(1)}</span>
+  </span>
+</a>`;
+}
+
+function drawPager(pages) {
+  if (pages <= 1) { pager.innerHTML = ""; return; }
+  const out = [1];
+  for (let i = state.page - 2; i <= state.page + 2; i++) if (i > 1 && i < pages) out.push(i);
+  out.push(pages);
+  const s = [...new Set(out)].sort((a, b) => a - b);
+  let html = `<button data-page="${Math.max(1, state.page - 1)}">Page précédente</button>`;
+  s.forEach((v, i) => {
+    if (i > 0 && v - s[i - 1] > 1) html += `<span>…</span>`;
+    html += `<button data-page="${v}" aria-current="${v === state.page}">${v}</button>`;
+  });
+  html += `<button data-page="${Math.min(pages, state.page + 1)}">Page suivante</button>`;
+  pager.innerHTML = html;
+}
+
+function render() {
+  const rows = all.filter(matches);
+  const pages = Math.max(1, Math.ceil(rows.length / PER));
+  state.page = Math.min(state.page, pages);
+  const slice = rows.slice((state.page - 1) * PER, state.page * PER);
+
+  drawBar(rows.length);
+  drawProgress(rows);
+
+  const first = slice[0]?.rank ?? 0;
+  const last = slice[slice.length - 1]?.rank ?? 0;
+
+  list.innerHTML = slice.length
+    ? `<div class="page-title">
+         <h2 style="font-size:22px">${state.status === "all" && !state.fam && !Object.values(state.drops).some(Boolean)
+            ? `Rangs ${first} à ${last}`
+            : `Page ${state.page}`}</h2>
+         <span class="mono dim" style="font-size:13px">${slice.filter((c) => known.has(c.id)).length} cochés sur cette page</span>
+       </div>
+       <div class="almanac">${slice.map(entry).join("")}</div>`
+    : `<p class="muted" style="padding:36px 0">Aucun coaster ne correspond à cette sélection.</p>`;
+
+  drawPager(pages);
+}
+
+/* ------------------------------------------------------------- interactions */
+
+bar.addEventListener("click", (e) => {
+  const opt = e.target.closest(".drop-opt");
+  if (opt) {
+    const key = opt.closest("[data-drop]").dataset.drop;
+    state.drops[key] = state.drops[key] === opt.dataset.val ? null : opt.dataset.val;
+    state.page = 1;
+    return render();
+  }
+  const trigger = e.target.closest(".drop .legend-item");
+  if (trigger) {
+    const wrap = trigger.closest("[data-drop]");
+    const key = wrap.dataset.drop;
+    if (state.drops[key]) { state.drops[key] = null; state.page = 1; return render(); }
+    const menu = wrap.querySelector(".drop-menu");
+    const open = !menu.hidden;
+    bar.querySelectorAll(".drop-menu").forEach((m) => (m.hidden = true));
+    menu.hidden = open;
+    trigger.setAttribute("aria-expanded", String(!open));
+    return;
+  }
+  const fam = e.target.closest("[data-fam]");
+  if (fam) { state.fam = state.fam === fam.dataset.fam ? null : fam.dataset.fam; state.page = 1; return render(); }
+  const st = e.target.closest("[data-status]");
+  if (st) { state.status = state.status === st.dataset.status ? "all" : st.dataset.status; state.page = 1; return render(); }
+  if (e.target.closest("[data-clear]")) { state.drops = {}; state.fam = null; state.status = "all"; state.page = 1; render(); }
+});
+
+pager.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-page]");
+  if (!b) return;
+  state.page = Number(b.dataset.page);
+  render();
+  window.scrollTo({ top: 220, behavior: "smooth" });
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".drop")) bar.querySelectorAll(".drop-menu").forEach((m) => (m.hidden = true));
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit — Carte du championnat · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist+Mono:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/js/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .maplayout {
+    display: grid;
+    grid-template-columns: 400px minmax(0, 1fr);
+    height: calc(100vh - var(--bar-h));
+  }
+  .mappanel { display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 0; }
+  .mappanel-head { padding: 22px 24px 16px; border-bottom: 1px solid var(--line); }
+  .mappanel-filters { display: flex; gap: 6px; padding: 12px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .mappanel-list { overflow-y: auto; flex: 1; min-height: 0; }
+  .parkrow {
+    display: grid; grid-template-columns: 54px minmax(0, 1fr) auto;
+    gap: 12px; align-items: center; width: 100%; text-align: left;
+    padding: 12px 24px; border-bottom: 1px solid var(--line);
+  }
+  .parkrow:hover, .parkrow[aria-current="true"] { background: var(--asphalt); }
+  .parkrow[aria-current="true"] { box-shadow: inset 3px 0 0 var(--signal); }
+  .parkrow .best { font-family: var(--ff-mono); font-size: 13px; color: var(--signal); }
+  #map { height: 100%; background: #12141a; }
+
+  /* Rampe inversée : en fond sombre, la valeur haute doit être la plus claire,
+     sinon le lecteur lit « sombre = plus » à l'envers. */
+  .leaflet-container { background: #12141a; font-family: var(--ff-display); }
+  .leaflet-popup-content-wrapper {
+    background: var(--asphalt); color: var(--chalk); border: 1px solid var(--line-strong);
+    border-radius: 2px; box-shadow: 0 20px 44px rgba(0,0,0,.55);
+  }
+  .leaflet-popup-tip { background: var(--asphalt); border: 1px solid var(--line-strong); }
+  .leaflet-popup-content { margin: 14px 16px; min-width: 220px; }
+  .leaflet-popup-close-button { color: var(--steel) !important; }
+  .leaflet-control-zoom a {
+    background: var(--asphalt); color: var(--chalk); border-color: var(--line-strong);
+  }
+  .leaflet-control-attribution { background: rgba(22,24,28,.8); color: var(--steel-dim); }
+  .leaflet-control-attribution a { color: var(--steel); }
+  .legend {
+    position: absolute; right: 14px; bottom: 30px; z-index: 500;
+    background: rgba(22,24,28,.92); border: 1px solid var(--line-strong); border-radius: 2px;
+    padding: 14px 16px; display: grid; gap: 8px;
+  }
+  .legend-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+  @media (max-width: 1000px) {
+    .maplayout { grid-template-columns: minmax(0, 1fr); height: auto; }
+    #map { height: 62vh; }
+    .mappanel-list { max-height: 46vh; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="../../assets/js/vendor/leaflet/leaflet.js"></script>
+<script type="module">
+import { getData, rail, esc, num } from "./d1.js";
+import { mapParks } from "../assets/data.js";
+
+const d = await getData();
+const parks = mapParks(d).filter((p) => p.best);
+const mine = new Set((d.userRatings["6315"] || []).map((r) => r.coasterId));
+const visited = new Set(
+  [...mine].map((id) => d.coasterById.get(id)?.parkId).filter(Boolean)
+);
+
+/* Un parc vaut ce que vaut son meilleur coaster : c'est la lecture championnat. */
+function tier(p) {
+  const r = p.bestRank;
+  if (r <= 10) return 0;
+  if (r <= 100) return 1;
+  if (r <= 500) return 2;
+  return 3;
+}
+const TIERS = [
+  { label: "Un coaster du top 10", color: "#ff4d1f", radius: 11 },
+  { label: "Un coaster du top 100", color: "#ff9f7a", radius: 8 },
+  { label: "Un coaster du top 500", color: "#8a93a0", radius: 6 },
+  { label: "Classé au-delà", color: "#4c545f", radius: 4 },
+];
+
+const FILTERS = [
+  { key: "all", label: "Tous les parcs classés", test: () => true },
+  { key: "t100", label: "Avec un top 100", test: (p) => p.bestRank <= 100 },
+  { key: "mine", label: "Où j'ai des credits", test: (p) => visited.has(p.id) },
+  { key: "todo", label: "Qu'il me reste", test: (p) => !visited.has(p.id) && p.bestRank <= 300 },
+];
+let active = "all";
+
+document.getElementById("app").innerHTML = `
+${rail("map")}
+<main id="main">
+  <div class="maplayout">
+    <aside class="mappanel">
+      <div class="mappanel-head">
+        <div class="label label-signal">Carte du championnat</div>
+        <h1 style="font-size:26px;margin-top:8px">Où sont les meilleurs</h1>
+        <p class="muted" style="font-size:13px;margin:10px 0 0">
+          Chaque parc est coloré par le rang mondial de son meilleur coaster.
+          La liste et la carte sont le même objet, triées par valeur sportive.
+        </p>
+      </div>
+      <div class="mappanel-filters" id="mfilters"></div>
+      <div class="mappanel-list" id="mlist"></div>
+    </aside>
+    <div style="position:relative">
+      <div id="map"></div>
+      <div class="legend">
+        <div class="label" style="margin-bottom:2px">Meilleur coaster du parc</div>
+        ${TIERS.map((t) => `<div class="legend-row"><span class="legend-dot" style="background:${t.color}"></span>${t.label}</div>`).join("")}
+        <div class="legend-row" style="margin-top:4px;color:var(--steel)"><span class="legend-dot" style="background:none;border:2px solid var(--chalk)"></span>Parc où j'ai des credits</div>
+      </div>
+    </div>
+  </div>
+</main>
+`;
+
+/* ------------------------------------------------------------------- carte */
+
+const map = L.map("map", { zoomControl: true, worldCopyJump: true }).setView([42, 5], 4);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  attribution: "© OpenStreetMap contributors © CARTO",
+  subdomains: "abcd",
+  maxZoom: 19,
+}).addTo(map);
+
+const layer = L.layerGroup().addTo(map);
+const markers = new Map();
+
+function popupHtml(p) {
+  const list = (d.coastersByPark.get(p.id) || [])
+    .filter((c) => typeof c.score === "number")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+  return `
+<div class="label label-signal">${esc(p.country || p.best.country || "")}</div>
+<div style="font-stretch:112%;font-weight:700;font-size:16px;margin:6px 0 10px">${esc(p.name)}</div>
+${list.map((c) => `
+<div style="display:flex;gap:10px;align-items:baseline;padding:4px 0;border-top:1px solid var(--line)">
+  <span class="mono" style="font-size:11px;color:var(--steel);width:40px">#${d.rankById.get(c.id)}</span>
+  <span style="flex:1;font-size:13px;font-weight:600">${esc(c.name)}</span>
+  <span class="mono" style="font-size:12px;color:var(--signal)">${c.score.toFixed(1)}</span>
+</div>`).join("")}
+<div class="mono" style="font-size:11px;color:var(--steel-dim);margin-top:10px">${p.coasterCount} coasters · ${p.scored} classés</div>`;
+}
+
+function drawMap(list) {
+  layer.clearLayers();
+  markers.clear();
+  for (const p of list) {
+    const t = TIERS[tier(p)];
+    const m = L.circleMarker([p.lat, p.lng], {
+      radius: t.radius,
+      color: visited.has(p.id) ? "#eceae5" : t.color,
+      weight: visited.has(p.id) ? 2 : 1,
+      fillColor: t.color,
+      fillOpacity: 0.85,
+    }).bindPopup(popupHtml(p));
+    m.addTo(layer);
+    markers.set(p.id, m);
+  }
+}
+
+/* ------------------------------------------------------------------ panneau */
+
+const mfilters = document.getElementById("mfilters");
+const mlist = document.getElementById("mlist");
+
+function render() {
+  const f = FILTERS.find((x) => x.key === active);
+  const list = parks.filter(f.test).sort((a, b) => a.bestRank - b.bestRank);
+
+  mfilters.innerHTML = FILTERS.map(
+    (x) => `<button class="chip" data-f="${x.key}" aria-pressed="${x.key === active}">${x.label}
+    <span class="count">${num(parks.filter(x.test).length)}</span></button>`
+  ).join("");
+
+  mlist.innerHTML = list.slice(0, 220).map((p) => `
+<button class="parkrow" data-id="${p.id}">
+  <span class="best">#${p.bestRank}</span>
+  <span style="min-width:0">
+    <span style="display:block;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>
+    <span class="row-sub">${esc(p.country || p.best.country || "")} · ${esc(p.best.name)}</span>
+  </span>
+  <span style="text-align:right">
+    <span class="mono" style="display:block;font-size:14px;color:var(--signal)">${p.best.score.toFixed(1)}</span>
+    <span class="mono muted" style="font-size:11px">${p.coasterCount} coasters</span>
+  </span>
+</button>`).join("");
+
+  drawMap(list);
+}
+
+mfilters.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-f]");
+  if (!b) return;
+  active = b.dataset.f;
+  render();
+});
+
+mlist.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-id]");
+  if (!b) return;
+  const id = Number(b.dataset.id);
+  const p = parks.find((x) => x.id === id);
+  mlist.querySelectorAll(".parkrow").forEach((r) => r.removeAttribute("aria-current"));
+  b.setAttribute("aria-current", "true");
+  map.flyTo([p.lat, p.lng], 9, { duration: 0.7 });
+  markers.get(id)?.openPopup();
+});
+
+render();
+</script>
+</body>
+</html>

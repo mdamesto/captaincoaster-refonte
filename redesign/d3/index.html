@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensation — Découvrir · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Funnel+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .figures { display: flex; gap: clamp(22px, 4vw, 56px); flex-wrap: wrap; }
+  .figures div span { display: block; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+  .figures div b { display: block; font-family: var(--ff-display); font-weight: 600; font-size: clamp(26px, 3.4vw, 40px); line-height: 1; margin-top: 6px; }
+  .senseline { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .senseline:hover { background: rgba(232,230,239,.03); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, floatbar, foot, photo, tallPhoto, HERO, spark, bySensation, tagFr, esc, num, avatar } from "./d3.js";
+import { topRanking, COUNTERS, activityFeed } from "../assets/data.js";
+
+const d = await getData();
+const top = topRanking(d, 60);
+const star = top[0];
+
+/* Les étiquettes de sensation les mieux documentées dans les avis réels. */
+const TAGS = ["Airtimes", "First Drop", "Intensity", "Ejectors", "Layout", "Launch", "Inversions", "Theming"];
+let activeTag = TAGS[0];
+
+const feed = activityFeed(d, 6);
+
+function card(c, i) {
+  return `
+<a class="card" href="coaster.html">
+  <img src="${tallPhoto(c.id)}" alt="" loading="lazy">
+  ${c.rank ? `<span class="card-rank">#${c.rank}</span>` : ""}
+  <span class="card-score">${c.score.toFixed(1)}</span>
+  <span class="card-in">
+    <span class="card-name">${esc(c.name)}</span>
+    <span class="card-sub">${esc(d.parkById.get(c.parkId)?.name || "")} · ${esc(c.country)}</span>
+    ${spark(c)}
+  </span>
+</a>`;
+}
+
+document.getElementById("app").innerHTML = `
+${floatbar("home")}
+<main id="main">
+
+  <!-- --------------------------------------------------------------- hero -->
+  <section class="hero">
+    <img class="hero-img" src="${HERO.home}" alt="" fetchpriority="high" width="1400" height="1867">
+    <span class="credit">Photo Unsplash</span>
+    <div class="hero-in">
+      <div class="wrap-wide">
+        <div class="eyebrow eyebrow-amber">N°1 mondial · ${esc(star.country)}</div>
+        <h1 style="margin-top:18px;max-width:14ch">${esc(star.name)}</h1>
+        <p class="lede" style="margin-top:20px">
+          ${star.heightM ? `${star.heightM} mètres, ` : ""}${star.speedKmh ? `${star.speedKmh} km/h. ` : ""}
+          ${num(COUNTERS.riders)} riders ont départagé ${num(COUNTERS.ranked)} coasters
+          pour le mettre là.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:28px">
+          <a class="btn btn-amber" href="coaster.html">Voir son tracé</a>
+          <a class="btn btn-ghost" href="ranking.html">Explorer le mur</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ entrer par la sensation -->
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="sect-head">
+        <div>
+          <div class="eyebrow eyebrow-amber">Une autre façon de chercher</div>
+          <h2 style="margin-top:10px">Entrer par la sensation</h2>
+        </div>
+        <p class="dim" style="max-width:46ch;margin:0;font-size:14.5px">
+          Personne ne cherche « un Intamin de 2019 ». On cherche de l'airtime, une
+          première chute, un lancement. Ce vocabulaire existe déjà dans les avis.
+        </p>
+      </div>
+
+      <div class="pills" id="tags" style="margin-bottom:26px"></div>
+      <div class="wall" id="senseWall"></div>
+      <p class="note" id="senseNote" style="margin-top:20px"></p>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------- le mur -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="sect-head">
+        <div>
+          <div class="eyebrow">Le classement mondial</div>
+          <h2 style="margin-top:10px">Les dix premiers</h2>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="ranking.html">Tout le mur</a>
+      </div>
+      <div class="wall">
+        ${top.slice(0, 10).map(card).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------- en ce moment -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="cols-2" style="align-items:start">
+        <div class="panel">
+          <div class="eyebrow eyebrow-amber">En ce moment</div>
+          <h3 style="margin:12px 0 16px">Les derniers rides racontés</h3>
+          ${feed.map((f) => `
+          <div class="senseline">
+            <img src="${avatar(f.user.name, 60)}" alt="" style="width:34px;height:34px;border-radius:999px">
+            <span style="min-width:0">
+              <span style="display:block;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                <b style="font-weight:600">${esc(f.user.name)}</b> <span class="dim">a fait</span> <b style="font-weight:600">${esc(f.coaster.name)}</b>
+              </span>
+              <span class="dim" style="font-size:13px">${esc(f.park?.name || "")}</span>
+            </span>
+            <span class="num" style="color:var(--amber)">${f.value.toFixed(1)}</span>
+          </div>`).join("")}
+        </div>
+
+        <div class="panel">
+          <div class="eyebrow eyebrow-amber">Ce qui fait le classement</div>
+          <h3 style="margin:12px 0 14px">Des duels, pas des étoiles</h3>
+          <p class="dim" style="font-size:15.5px">
+            Chaque coaster affronte tous les autres. Seuls les riders qui ont fait
+            les deux peuvent trancher. Le score, c'est la proportion de duels gagnés —
+            c'est pour ça qu'un ${star.score.toFixed(1)} veut dire quelque chose.
+          </p>
+          <div class="figures" style="margin-top:24px">
+            <div><span>Coasters</span><b>${num(COUNTERS.coasters)}</b></div>
+            <div><span>Classés</span><b>${num(COUNTERS.ranked)}</b></div>
+            <div><span>Riders</span><b>${num(COUNTERS.riders)}</b></div>
+            <div><span>Avis</span><b>${num(COUNTERS.reviews)}</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+${foot(`Les compteurs sont ceux affichés par le site. Les classements par sensation sont calculés
+à partir des étiquettes des avis réellement présents dans l'extrait. Photographies : Unsplash.`)}
+`;
+
+/* ------------------------------------------------------- entrer par la sensation */
+
+const tagsEl = document.getElementById("tags");
+const wallEl = document.getElementById("senseWall");
+const noteEl = document.getElementById("senseNote");
+
+function renderTags() {
+  tagsEl.innerHTML = TAGS.map((t) => {
+    const n = d.reviews.filter((r) => (r.pros || []).includes(t)).length;
+    return `<button class="pill" data-tag="${esc(t)}" aria-pressed="${t === activeTag}">
+      ${esc(tagFr(t))} <span class="n">${num(n)}</span></button>`;
+  }).join("");
+}
+
+function renderWall() {
+  const list = bySensation(d, activeTag, 5);
+  wallEl.innerHTML = list.map(({ coaster, count, rank }) => `
+<a class="card" href="coaster.html">
+  <img src="${tallPhoto(coaster.id)}" alt="" loading="lazy">
+  ${rank ? `<span class="card-rank">#${rank}</span>` : ""}
+  <span class="card-score">${count} mentions</span>
+  <span class="card-in">
+    <span class="card-name">${esc(coaster.name)}</span>
+    <span class="card-sub">${esc(d.parkById.get(coaster.parkId)?.name || "")} · ${esc(coaster.country)}</span>
+    ${spark(coaster)}
+  </span>
+</a>`).join("");
+  noteEl.innerHTML = `Coasters les plus souvent cités pour « ${esc(tagFr(activeTag))} » dans les avis.
+  Le dépouillement porte sur les ${num(d.reviews.length)} avis présents dans l'extrait ; en production
+  il porterait sur les ${num(COUNTERS.reviews)} avis du site.`;
+}
+
+tagsEl.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-tag]");
+  if (!b) return;
+  activeTag = b.dataset.tag;
+  renderTags();
+  renderWall();
+});
+
+renderTags();
+renderWall();
+</script>
+</body>
+</html>

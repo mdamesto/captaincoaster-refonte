@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit — Steel Vengeance · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist+Mono:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* Histogramme de distribution — le composant le plus rentable de Letterboxd :
+     il donne la forme de l'opinion, pas seulement sa moyenne. */
+  .histo { display: flex; align-items: flex-end; gap: 3px; height: 62px; }
+  .histo-bar { flex: 1; background: var(--steel-dim); border-radius: 1px 1px 0 0; min-height: 2px; position: relative; }
+  .histo-bar.is-top { background: var(--signal); }
+  .histo-axis { display: flex; justify-content: space-between; margin-top: 7px; }
+
+  /* Profil de sensation : les tags d'avis, enfin agrégés. */
+  .sens { display: grid; gap: 9px; }
+  .sens-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 40px; gap: 12px; align-items: center; }
+  .sens-track { height: 8px; background: var(--slab); border-radius: 1px; overflow: hidden; }
+  .sens-fill { height: 100%; background: var(--signal); }
+  .sens-fill.neg { background: var(--steel-dim); }
+
+  /* Tale of the tape : le duel, écran par écran, contre des rivaux nommés. */
+  .tape { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 2px; overflow: hidden; }
+  .tape-row {
+    display: grid; grid-template-columns: 150px 76px minmax(0, 1fr) auto;
+    gap: 16px; align-items: center; padding: 12px 16px; background: var(--asphalt);
+  }
+  .tape-row:hover { background: var(--slab); }
+  .tape-verdict {
+    font-family: var(--ff-mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    padding: 4px 10px; border: 1px solid currentColor; border-radius: 2px;
+  }
+  .tape-win { color: var(--signal); }
+  .tape-lose { color: var(--steel); }
+
+  .gal { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+  .gal figure { position: relative; margin: 0; }
+  .gal img { width: 100%; aspect-ratio: 3/2; object-fit: cover; }
+  .gal figcaption {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 12px 9px;
+    background: linear-gradient(180deg, rgba(22,24,28,0) 0%, rgba(22,24,28,.9) 100%);
+    font-size: 11px; display: flex; justify-content: space-between; gap: 10px;
+  }
+  .verdict-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 34px;
+  }
+  .review { padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .stars { color: var(--signal); letter-spacing: 2px; font-size: 13px; }
+  @media (max-width: 1000px) {
+    .verdict-grid { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+  }
+  @media (max-width: 860px) {
+    .gal { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tape-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
+    .tape-row > :nth-child(2) { display: none; }
+    .sens-row { grid-template-columns: 106px minmax(0, 1fr) 36px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, rail, foot, duelBar, duelRecord, percentile, ordinalFr, pctBlock, photo, HERO, esc, num, avatar } from "./d1.js";
+import { coasterView, HERO_COASTER_ID } from "../assets/data.js";
+
+const d = await getData();
+const field = d.ranking.length;
+const c = coasterView(d, HERO_COASTER_ID);
+const rec = duelRecord(c.score, field);
+
+/* ------------------------------------------------------------- percentiles */
+const ranked = d.ranking;
+const samePool = ranked.filter((x) => x.manufacturer === c.manufacturer);
+const poolLabel = `des ${c.manufacturer}`;
+
+const specs = [
+  ["Hauteur", c.heightM, "m", (x) => x.heightM],
+  ["Vitesse", c.speedKmh, "km/h", (x) => x.speedKmh],
+  ["Longueur", c.lengthM, "m", (x) => x.lengthM],
+  ["Inversions", c.inversions, "", (x) => x.inversions],
+];
+
+/* ------------------------------------------------- palmarès contre rivaux */
+// Un duel est remporté par le coaster au meilleur score : c'est la définition
+// même du classement. Les verdicts ci-dessous sont donc exacts, pas simulés.
+const bestOfPark = c.siblings[0] || null;
+const bestOfMaker = samePool.find((x) => x.id !== c.id) || null;
+const bestOfCountry = ranked.find((x) => x.country === c.country && x.id !== c.id) || null;
+const above = ranked[c.rank - 2] || null;
+const below = ranked[c.rank] || null;
+
+const rivals = [
+  ["Le n°1 mondial", ranked[0]],
+  ["Le rang au-dessus", above],
+  ["Le rang en dessous", below],
+  [`Meilleur ${c.manufacturer}`, bestOfMaker],
+  [`Meilleur du parc`, bestOfPark],
+  [`Meilleur du pays`, bestOfCountry],
+].filter(([, x]) => x && x.id !== c.id);
+
+const seen = new Set();
+const tape = rivals.filter(([, x]) => (seen.has(x.id) ? false : seen.add(x.id)));
+
+/* ------------------------------------------------------ profil de sensation */
+const pros = new Map(), cons = new Map();
+for (const r of c.reviews) {
+  for (const p of r.pros || []) pros.set(p, (pros.get(p) || 0) + 1);
+  for (const n of r.cons || []) cons.set(n, (cons.get(n) || 0) + 1);
+}
+const sensPros = [...pros.entries()].sort((a, b) => b[1] - a[1]).slice(0, 7);
+const sensCons = [...cons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+const sensMax = Math.max(1, ...sensPros.map(([, n]) => n));
+
+/* ------------------------------------------------------------ distribution */
+const buckets = new Array(10).fill(0);
+for (const r of c.reviews) buckets[Math.max(0, Math.min(9, Math.round(r.rating * 2) - 1))]++;
+const bmax = Math.max(1, ...buckets);
+
+const stars = (v) => "★".repeat(Math.floor(v)) + (v % 1 ? "½" : "");
+
+document.getElementById("app").innerHTML = `
+${rail("ranking")}
+<main id="main">
+
+  <section class="hero" style="min-height:min(72vh,600px)">
+    <img class="hero-img" src="${HERO.coaster}" alt="" fetchpriority="high" width="1920" height="1279">
+    <div class="hero-in">
+      <div class="wrap-wide">
+        <div class="label label-signal">${esc(c.park?.name || "")} · ${esc(c.country)}</div>
+        <div style="display:flex;align-items:flex-end;gap:clamp(16px,3vw,44px);flex-wrap:wrap;margin-top:12px">
+          <div class="hero-rank">${String(c.rank).padStart(2, "0")}</div>
+          <div style="flex:1;min-width:min(320px,100%)">
+            <h1 class="hero-name">${esc(c.name)}</h1>
+            <div style="opacity:.78;font-size:16px;margin-top:10px">
+              ${esc(c.manufacturer || "")}${c.year ? ` · ${c.year}` : ""}${c.materialType ? ` · ${c.materialType === "Wood" ? "Bois" : c.materialType === "Hybrid" ? "Hybride" : "Acier"}` : ""}${c.seatingType ? ` · ${esc(c.seatingType)}` : ""}
+            </div>
+          </div>
+          <a class="btn btn-signal" href="index.html#duel">Départager</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------- le verdict -->
+  <section class="sect" style="padding-top:34px">
+    <div class="wrap-wide">
+      <div class="verdict-grid">
+
+        <div>
+          <div class="label">Score mondial</div>
+          <div class="score" style="font-size:clamp(64px,9vw,108px);margin-top:8px">${c.score.toFixed(1)}<sup>%</sup></div>
+          <p class="muted" style="margin-top:14px;font-size:13.5px;max-width:34ch">
+            Proportion de duels gagnés face aux ${num(field - 1)} autres coasters classés.
+          </p>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:10px">Palmarès en duels</div>
+          ${duelBar(rec)}
+          <div style="display:flex;gap:26px;margin-top:22px">
+            <div><div class="label">Rang mondial</div><div class="mono" style="font-size:24px;margin-top:4px">${c.rank}<span class="muted" style="font-size:13px"> / ${num(field)}</span></div></div>
+            <div><div class="label">Avis</div><div class="mono" style="font-size:24px;margin-top:4px">${num(c.summary?.reviewCount || c.reviews.length)}</div></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="label" style="margin-bottom:10px">Distribution des notes</div>
+          <div class="histo">
+            ${buckets.map((n, i) => `<div class="histo-bar${n === bmax ? " is-top" : ""}" style="height:${Math.max(3, (n / bmax) * 100)}%" title="${n} avis à ${(i + 1) / 2}★"></div>`).join("")}
+          </div>
+          <div class="histo-axis">
+            <span class="mono" style="font-size:11px;color:var(--signal)">★</span>
+            <span class="mono" style="font-size:11px;color:var(--signal)">★★★★★</span>
+          </div>
+          <div class="mono muted" style="font-size:12px;margin-top:10px">
+            moyenne ${c.ratingAverage ? c.ratingAverage.toFixed(2) : "—"} sur ${c.reviews.length} avis notés
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------ tale of the tape -->
+  <section class="sect" style="background:var(--asphalt);border-block:1px solid var(--line)">
+    <div class="wrap-wide">
+      <div class="sect-head" style="border-color:var(--line-strong)">
+        <div>
+          <div class="label label-signal">Le duel, coaster par coaster</div>
+          <h2 style="margin-top:8px">Face à ses rivaux</h2>
+        </div>
+        <span class="mono muted" style="font-size:12px">${rec.won} victoires · ${rec.lost} défaites</span>
+      </div>
+      <div class="tape">
+        ${tape.map(([label, r]) => {
+          const win = c.score >= r.score;
+          return `
+        <div class="tape-row">
+          <div class="label">${esc(label)}</div>
+          <img class="row-photo" style="width:76px;height:48px" src="${photo(r.id)}" alt="" loading="lazy">
+          <div style="min-width:0">
+            <div class="row-name">${esc(r.name)}</div>
+            <div class="row-sub">#${r.rank} · ${esc(r.park?.name || "")} · ${r.score.toFixed(1)}</div>
+          </div>
+          <span class="tape-verdict ${win ? "tape-win" : "tape-lose"}">${win ? "Gagné" : "Perdu"}</span>
+        </div>`;
+        }).join("")}
+      </div>
+      <p class="note" style="margin-top:16px">
+        Un duel est remporté par le coaster que la majorité des riders ayant fait les deux
+        place devant. Ces verdicts découlent directement du classement publié.
+      </p>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------- caractéristiques + sensation -->
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="cols-2" style="gap:44px;align-items:start">
+
+        <div>
+          <div class="sect-head"><h2>Caractéristiques</h2><span class="label">contre ${num(samePool.length)} ${esc(c.manufacturer || "")}</span></div>
+          <div class="cols-2" style="gap:26px">
+            ${specs.map(([label, value, unit, get]) =>
+              pctBlock(label, value ?? "—", unit, value ? percentile(value, ranked.map(get)) : null, "mondial")
+            ).join("")}
+          </div>
+          <div style="height:1px;background:var(--line);margin:26px 0"></div>
+          <div class="cols-2" style="gap:26px">
+            ${specs.slice(0, 2).map(([label, value, unit, get]) =>
+              pctBlock(label, value ?? "—", unit, value ? percentile(value, samePool.map(get)) : null, poolLabel)
+            ).join("")}
+          </div>
+          <p class="note" style="margin-top:22px">
+            « 62 m » ne dit rien à qui n'a pas de repère. Le percentile situe chaque
+            caractéristique dans un pool comparable, et rend deux fiches lisibles côte à côte.
+          </p>
+        </div>
+
+        <div>
+          <div class="sect-head"><h2>Profil de sensation</h2><span class="label">${c.reviews.length} avis dépouillés</span></div>
+          <div class="sens">
+            ${sensPros.map(([tag, n]) => `
+            <div class="sens-row">
+              <span style="font-size:13px;font-weight:600">${esc(tag)}</span>
+              <span class="sens-track"><span class="sens-fill" style="width:${(n / sensMax) * 100}%"></span></span>
+              <span class="mono" style="font-size:12px;text-align:right">${n}</span>
+            </div>`).join("")}
+          </div>
+          ${sensCons.length ? `
+          <div class="label" style="margin:24px 0 10px">Points faibles cités</div>
+          <div class="sens">
+            ${sensCons.map(([tag, n]) => `
+            <div class="sens-row">
+              <span style="font-size:13px;font-weight:600;color:var(--steel)">${esc(tag)}</span>
+              <span class="sens-track"><span class="sens-fill neg" style="width:${(n / sensMax) * 100}%"></span></span>
+              <span class="mono muted" style="font-size:12px;text-align:right">${n}</span>
+            </div>`).join("")}
+          </div>` : ""}
+          <p class="note" style="margin-top:22px">
+            Ce vocabulaire existe déjà : chaque avis du site est étiqueté. Il n'était
+            simplement agrégé nulle part.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ synthèse -->
+  ${c.summary ? `
+  <section class="sect" style="background:var(--asphalt);border-block:1px solid var(--line)">
+    <div class="wrap-wide">
+      <div class="cols-2" style="gap:44px;align-items:start">
+        <div>
+          <div class="label label-signal">Synthèse des ${num(c.summary.reviewCount)} avis</div>
+          <p style="font-size:17px;line-height:1.6;margin-top:14px">${esc(c.summary.text)}</p>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:12px">Ce qui revient</div>
+          <div class="chips" style="margin-bottom:22px">
+            ${c.summary.highlights.map((h) => `<span class="tag tag-on">${esc(h)}</span>`).join("")}
+          </div>
+          <div class="label" style="margin-bottom:12px">Les réserves</div>
+          <div class="chips">
+            ${c.summary.concerns.map((h) => `<span class="tag">${esc(h)}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>` : ""}
+
+  <!-- ------------------------------------------------------------- galerie -->
+  <section class="sect">
+    <div class="wrap-wide">
+      <div class="sect-head"><h2>Galerie</h2><span class="label">${c.photos.length} photos · ${num(c.photos.reduce((s, p) => s + p.likes, 0))} likes</span></div>
+      <div class="gal">
+        ${c.photos.slice(0, 8).map((p) => `
+        <figure>
+          <img src="${photo(p.id)}" alt="" loading="lazy">
+          <figcaption><span>${esc(p.credit)}</span><span class="mono" style="color:var(--signal)">♥ ${p.likes}</span></figcaption>
+        </figure>`).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- avis -->
+  <section class="sect" style="padding-top:0">
+    <div class="wrap-wide">
+      <div class="cols-2" style="gap:44px;align-items:start">
+        <div>
+          <div class="sect-head"><h2>Avis les plus utiles</h2></div>
+          ${c.reviews.slice(0, 5).map((r) => `
+          <article class="review">
+            <div class="review-head">
+              <img class="avatar" src="${avatar(r.userName, 68)}" alt="">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700">${esc(r.userName)}</div>
+                <div class="row-sub">${esc(r.ago)}</div>
+              </div>
+              <div class="stars">${stars(r.rating)}</div>
+            </div>
+            ${r.text ? `<p style="margin:0 0 10px">${esc(r.text)}</p>` : ""}
+            <div class="chips">
+              ${(r.pros || []).map((p) => `<span class="tag tag-on">+ ${esc(p)}</span>`).join("")}
+              ${(r.cons || []).map((p) => `<span class="tag">− ${esc(p)}</span>`).join("")}
+              ${r.upvotes ? `<span class="mono muted" style="font-size:11px;margin-left:auto">${r.upvotes} personnes ont trouvé cet avis utile</span>` : ""}
+            </div>
+          </article>`).join("")}
+        </div>
+
+        <div>
+          <div class="sect-head"><h2>Aussi à ${esc(c.park?.name || "")}</h2></div>
+          <div class="ticker">
+            ${c.siblings.slice(0, 8).map((s) => `
+            <a class="ticker-row" href="#">
+              <span class="ticker-rank">${d.rankById.get(s.id) ? "#" + d.rankById.get(s.id) : "—"}</span>
+              <span style="min-width:0">
+                <span style="display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
+                <span class="row-sub">${esc(s.manufacturer || "—")}${s.year ? ` · ${s.year}` : ""}</span>
+              </span>
+              <span class="mono" style="font-size:15px;color:${s.score ? "var(--signal)" : "var(--steel-dim)"}">${s.score ? s.score.toFixed(1) : "—"}</span>
+            </a>`).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+${foot(`Score, rang, avis, étiquettes et synthèse proviennent du jeu de données réel du site.
+Le palmarès en duels est dérivé de la définition publiée par Captain Coaster. Les photographies
+sont des substituts libres de droits (Unsplash) — les crédits affichés sont ceux des vrais auteurs
+relevés sur le site.`)}
+`;
+</script>
+</body>
+</html>

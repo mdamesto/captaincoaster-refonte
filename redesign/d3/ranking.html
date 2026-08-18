@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sensation — Le mur · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300..800&family=Funnel+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .bar {
+    position: sticky; top: 78px; z-index: 30; margin-bottom: 26px;
+    padding: 12px 14px; border-radius: 18px;
+    background: rgba(23,28,46,.82); border: 1px solid var(--line);
+    backdrop-filter: saturate(150%) blur(14px);
+    display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+  }
+  .drop { position: relative; }
+  .drop-menu {
+    position: absolute; top: calc(100% + 8px); left: 0; z-index: 5; min-width: 250px; max-height: 330px;
+    overflow-y: auto; padding: 7px; border-radius: 14px;
+    background: #1d2338; border: 1px solid var(--line-strong); box-shadow: 0 22px 48px rgba(0,0,0,.5);
+  }
+  .drop-menu[hidden] { display: none; }
+  .drop-opt {
+    display: flex; width: 100%; justify-content: space-between; gap: 14px;
+    padding: 8px 11px; border-radius: 9px; font-size: 14px; text-align: left;
+  }
+  .drop-opt:hover { background: rgba(232,230,239,.07); }
+  .drop-opt[aria-selected="true"] { color: var(--amber); }
+  .drop-opt .n { font-size: 12px; color: var(--dim); }
+  .more { display: flex; justify-content: center; padding: 40px 0 10px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, floatbar, foot, tallPhoto, spark, bySensation, tagFr, esc, num } from "./d3.js";
+
+const d = await getData();
+const all = d.ranking;
+const STEP = 24;
+
+/* Les étiquettes de sensation, dépouillées des avis réels. */
+const TAGS = ["Airtimes", "First Drop", "Intensity", "Ejectors", "Layout", "Launch", "Inversions", "Theming"];
+const tagSets = new Map();
+for (const t of TAGS) tagSets.set(t, new Set(bySensation(d, t, 40).map((x) => x.coaster.id)));
+
+function tally(fn) {
+  const m = new Map();
+  for (const c of all) {
+    const v = fn(c);
+    if (v == null || v === "") continue;
+    m.set(v, (m.get(v) || 0) + 1);
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+const DROPS = [
+  { key: "country", label: "Pays", get: (c) => c.country, opts: tally((c) => c.country) },
+  { key: "manufacturer", label: "Constructeur", get: (c) => c.manufacturer, opts: tally((c) => c.manufacturer) },
+  {
+    key: "decade", label: "Décennie",
+    get: (c) => (c.year ? `${Math.floor(c.year / 10) * 10}s` : null),
+    opts: tally((c) => (c.year ? `${Math.floor(c.year / 10) * 10}s` : null)).sort((a, b) => b[0].localeCompare(a[0])),
+  },
+];
+
+const state = { drops: {}, tag: null, shown: STEP };
+
+function matches(c) {
+  for (const dp of DROPS) if (state.drops[dp.key] && dp.get(c) !== state.drops[dp.key]) return false;
+  if (state.tag && !tagSets.get(state.tag).has(c.id)) return false;
+  return true;
+}
+
+document.getElementById("app").innerHTML = `
+${floatbar("ranking")}
+<main id="main" class="top-pad">
+  <div class="wrap-wide">
+    <div style="padding:clamp(20px,3vw,38px) 0 26px">
+      <div class="eyebrow eyebrow-amber">${num(all.length)} coasters classés</div>
+      <h1 style="margin-top:14px">Le mur</h1>
+      <p class="lede" style="margin-top:16px">
+        Le classement mondial, mais montré. Chaque vignette porte sa silhouette de
+        parcours — la forme se reconnaît avant le nom.
+      </p>
+    </div>
+
+    <div class="bar" id="bar"></div>
+    <div class="wall" id="wall"></div>
+    <div class="more" id="more"></div>
+  </div>
+</main>
+${foot(`Les filtres par sensation s'appuient sur les étiquettes des avis présents dans l'extrait :
+ils ne couvrent que les coasters déjà commentés. Les silhouettes de parcours sont dérivées des
+caractéristiques publiées, pas relevées sur le terrain.`)}
+`;
+
+const bar = document.getElementById("bar");
+const wall = document.getElementById("wall");
+const more = document.getElementById("more");
+
+function drawBar(count) {
+  const active = Object.values(state.drops).some(Boolean) || state.tag;
+  bar.innerHTML = `
+${DROPS.map((dp) => `
+<div class="drop" data-drop="${dp.key}">
+  <button class="pill" aria-expanded="false" aria-pressed="${state.drops[dp.key] ? "true" : "false"}">
+    ${state.drops[dp.key] ? esc(state.drops[dp.key]) : dp.label}<span class="n">${state.drops[dp.key] ? "×" : "▾"}</span>
+  </button>
+  <div class="drop-menu" hidden>
+    ${dp.opts.slice(0, 40).map(([v, n]) => `
+      <button class="drop-opt" data-val="${esc(v)}" aria-selected="${state.drops[dp.key] === v}">
+        <span>${esc(v)}</span><span class="n">${num(n)}</span></button>`).join("")}
+  </div>
+</div>`).join("")}
+
+<span style="width:1px;height:24px;background:var(--line-strong);margin-inline:5px"></span>
+
+${TAGS.map((t) => `
+<button class="pill" data-tag="${esc(t)}" aria-pressed="${state.tag === t}">
+  ${esc(tagFr(t))}<span class="n">${tagSets.get(t).size}</span></button>`).join("")}
+
+${active ? `<button class="pill" data-clear style="border-style:dashed">Tout effacer</button>` : ""}
+<span class="dim" style="margin-left:auto;font-size:14px" aria-live="polite">${num(count)} résultats</span>`;
+}
+
+function card(c) {
+  return `
+<a class="card" href="coaster.html">
+  <img src="${tallPhoto(c.id)}" alt="" loading="lazy">
+  <span class="card-rank">#${c.rank}</span>
+  <span class="card-score">${c.score.toFixed(1)}</span>
+  <span class="card-in">
+    <span class="card-name">${esc(c.name)}</span>
+    <span class="card-sub">${esc(c.park?.name || "")} · ${esc(c.country)}</span>
+    ${spark(c)}
+  </span>
+</a>`;
+}
+
+function render() {
+  const rows = all.filter(matches);
+  drawBar(rows.length);
+  wall.innerHTML = rows.slice(0, state.shown).map(card).join("") ||
+    `<p class="dim" style="padding:40px 0">Aucun coaster ne correspond à cette sélection.</p>`;
+  more.innerHTML = state.shown < rows.length
+    ? `<button class="btn btn-ghost" id="loadmore">Charger les ${Math.min(STEP, rows.length - state.shown)} suivants</button>`
+    : rows.length ? `<span class="dim" style="font-size:14px">Fin du mur · ${num(rows.length)} coasters</span>` : "";
+}
+
+bar.addEventListener("click", (e) => {
+  const opt = e.target.closest(".drop-opt");
+  if (opt) {
+    const key = opt.closest("[data-drop]").dataset.drop;
+    state.drops[key] = state.drops[key] === opt.dataset.val ? null : opt.dataset.val;
+    state.shown = STEP;
+    return render();
+  }
+  const trigger = e.target.closest(".drop .pill");
+  if (trigger) {
+    const wrap = trigger.closest("[data-drop]");
+    const key = wrap.dataset.drop;
+    if (state.drops[key]) { state.drops[key] = null; state.shown = STEP; return render(); }
+    const menu = wrap.querySelector(".drop-menu");
+    const open = !menu.hidden;
+    bar.querySelectorAll(".drop-menu").forEach((m) => (m.hidden = true));
+    menu.hidden = open;
+    trigger.setAttribute("aria-expanded", String(!open));
+    return;
+  }
+  const tag = e.target.closest("[data-tag]");
+  if (tag) { state.tag = state.tag === tag.dataset.tag ? null : tag.dataset.tag; state.shown = STEP; return render(); }
+  if (e.target.closest("[data-clear]")) { state.drops = {}; state.tag = null; state.shown = STEP; render(); }
+});
+
+more.addEventListener("click", (e) => {
+  if (!e.target.closest("#loadmore")) return;
+  state.shown += STEP;
+  render();
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".drop")) bar.querySelectorAll(".drop-menu").forEach((m) => (m.hidden = true));
+});
+
+render();
+</script>
+</body>
+</html>

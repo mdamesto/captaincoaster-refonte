@@ -1,0 +1,1040 @@
+/* ============================================================================
+   DIRECTION 1 — CIRCUIT
+   Captain Coaster as a world championship judged by 25 000 people.
+
+   Rules this sheet enforces:
+   - one warm accent, used as punctuation only (rank 1, active state, the duel)
+   - numbers are the subject: tabular figures everywhere, no exception
+   - the width axis of Archivo carries the hierarchy, not five different fonts
+   - photography is a ground, never a decoration
+   ========================================================================= */
+
+:root {
+  /* surfaces */
+  --graphite: #16181c;
+  --asphalt: #1e2127;
+  --slab: #262a31;
+  --slab-hi: #2e333b;
+
+  /* ink */
+  --chalk: #eceae5;
+  --steel: #8a93a0;
+  --steel-dim: #626a76;
+
+  /* the single accent */
+  --signal: #ff4d1f;
+  --signal-dim: #b83614;
+
+  --line: rgba(236, 234, 229, 0.1);
+  --line-strong: rgba(236, 234, 229, 0.2);
+
+  --shell: 1360px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --bar-h: 60px;
+
+  --ff-display: "Archivo", system-ui, sans-serif;
+  --ff-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--graphite);
+  color: var(--chalk);
+  font-family: var(--ff-display);
+  font-size: 15px;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* height:auto est obligatoire : les attributs width/height du HTML posent une
+   hauteur utilisee qui neutraliserait aspect-ratio. */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--signal);
+  color: #fff;
+  padding: 10px 16px;
+}
+.skip:focus {
+  left: 8px;
+  top: 8px;
+}
+
+.wrap {
+  max-width: var(--shell);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.wrap-wide {
+  max-width: 1720px;
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ------------------------------------------------------------- typography */
+
+.mono {
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Station-board label: the small caps rule that runs the whole interface. */
+.label {
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.label-signal {
+  color: var(--signal);
+}
+
+/* Wide cut — names, headlines. */
+.wide {
+  font-stretch: 118%;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* Narrow cut — numbers that need to be enormous without eating the line. */
+.narrow {
+  font-stretch: 64%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-stretch: 118%;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+h1 {
+  font-size: clamp(30px, 4.4vw, 52px);
+}
+h2 {
+  font-size: clamp(22px, 2.6vw, 30px);
+}
+h3 {
+  font-size: 17px;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+.muted {
+  color: var(--steel);
+}
+
+/* --------------------------------------------------------------- top rail */
+
+.rail {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--bar-h);
+  background: rgba(22, 24, 28, 0.94);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(140%) blur(10px);
+}
+
+.rail-in {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: none;
+}
+
+.brand-mark {
+  font-stretch: 62%;
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.brand-mark em {
+  font-style: normal;
+  color: var(--signal);
+}
+
+.nav {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.nav a {
+  position: relative;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--steel);
+  white-space: nowrap;
+  border-radius: 2px;
+}
+
+.nav a:hover {
+  color: var(--chalk);
+  background: var(--asphalt);
+}
+
+.nav a[aria-current="page"] {
+  color: var(--chalk);
+}
+
+.nav a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--signal);
+}
+
+.rail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.rail-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--asphalt);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: var(--steel);
+  font-size: 13px;
+  min-width: 190px;
+}
+
+.rail-search:hover {
+  border-color: var(--line-strong);
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.who img {
+  width: 28px;
+  height: 28px;
+  border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-family: var(--ff-mono);
+  border: 1px solid transparent;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.btn-signal {
+  background: var(--signal);
+  color: #12100f;
+}
+.btn-signal:hover {
+  background: #ff6338;
+}
+
+.btn-ghost {
+  border-color: var(--line-strong);
+  color: var(--chalk);
+}
+.btn-ghost:hover {
+  background: var(--asphalt);
+  border-color: var(--chalk);
+}
+
+.btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------ chips */
+
+.chips {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--asphalt);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--chalk);
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--chalk);
+}
+
+.chip .count {
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  color: var(--steel);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #12100f;
+}
+
+.chip[aria-pressed="true"] .count {
+  color: rgba(18, 16, 15, 0.65);
+}
+
+.chip-clear {
+  background: none;
+  border-color: transparent;
+  color: var(--steel);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------ score & bar */
+
+/* The single dominant number. */
+.score {
+  font-stretch: 64%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.82;
+  letter-spacing: -0.03em;
+}
+
+.score sup {
+  font-size: 0.36em;
+  font-stretch: 100%;
+  font-weight: 600;
+  vertical-align: super;
+  letter-spacing: 0;
+  color: var(--steel);
+}
+
+/* Duel record: wins in signal, losses in steel. Always doubled by figures. */
+.duelbar {
+  height: 6px;
+  background: var(--slab);
+  border-radius: 1px;
+  overflow: hidden;
+  display: flex;
+}
+
+.duelbar i {
+  display: block;
+  height: 100%;
+  background: var(--signal);
+}
+
+.duelbar i + i {
+  background: var(--steel-dim);
+}
+
+.duel-figures {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.duel-figures .w {
+  color: var(--signal);
+}
+.duel-figures .l {
+  color: var(--steel);
+}
+
+/* Percentile track — the FBref move: a raw figure means nothing alone. */
+.pct {
+  display: grid;
+  gap: 5px;
+}
+
+.pct-track {
+  position: relative;
+  height: 4px;
+  background: var(--slab);
+  border-radius: 1px;
+}
+
+.pct-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--steel-dim);
+  border-radius: 1px;
+}
+
+.pct-fill.is-high {
+  background: var(--signal);
+}
+
+.pct-note {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  color: var(--steel);
+}
+
+/* Rank movement */
+.delta {
+  font-family: var(--ff-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.delta.up {
+  color: var(--signal);
+}
+.delta.down {
+  color: var(--steel);
+}
+.delta.flat {
+  color: var(--steel-dim);
+}
+
+/* ------------------------------------------------------------ page header */
+
+.phead {
+  padding: 44px 0 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.phead-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.phead p {
+  max-width: 62ch;
+  color: var(--steel);
+  margin: 10px 0 0;
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------- sections */
+
+.sect {
+  padding: 46px 0;
+}
+
+.sect-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------- data table */
+
+.board {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.board thead th {
+  padding: 0 12px 10px;
+  text-align: left;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--steel);
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.board tbody tr {
+  border-bottom: 1px solid var(--line);
+}
+
+.board tbody tr:hover {
+  background: var(--asphalt);
+}
+
+.board td {
+  padding: 9px 12px;
+  vertical-align: middle;
+}
+
+.board .c-rank {
+  width: 74px;
+  padding-left: 0;
+}
+
+.board .c-num {
+  text-align: right;
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rank-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.rank-n {
+  font-stretch: 64%;
+  font-weight: 800;
+  font-size: 27px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-photo {
+  width: 92px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 2px;
+  background: var(--slab);
+}
+
+.row-name {
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 15.5px;
+  letter-spacing: -0.01em;
+}
+
+.row-sub {
+  font-size: 12.5px;
+  color: var(--steel);
+  margin-top: 2px;
+}
+
+.row-score {
+  font-stretch: 64%;
+  font-weight: 800;
+  font-size: 25px;
+  line-height: 1;
+}
+
+/* ---------------------------------------------------------- podium bands */
+
+/* The top of a ranking deserves editorial treatment; the rest is a table. */
+.podium {
+  display: grid;
+  gap: 2px;
+}
+
+.band {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 40%);
+  align-items: stretch;
+  background: var(--asphalt);
+  border-left: 3px solid transparent;
+  overflow: hidden;
+}
+
+.band-1 {
+  border-left-color: var(--signal);
+}
+
+.band-body {
+  padding: 30px 34px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 22px;
+  min-width: 0;
+}
+
+.band-rank {
+  font-stretch: 62%;
+  font-weight: 800;
+  font-size: clamp(72px, 11vw, 132px);
+  line-height: 0.78;
+  letter-spacing: -0.04em;
+  color: var(--slab-hi);
+}
+
+.band-1 .band-rank {
+  color: var(--signal);
+}
+
+.band-name {
+  font-stretch: 118%;
+  font-weight: 700;
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+}
+
+.band-meta {
+  color: var(--steel);
+  font-size: 13.5px;
+  margin-top: 6px;
+}
+
+.band-stats {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.band-stat {
+  min-width: 92px;
+}
+
+.band-stat b {
+  display: block;
+  font-family: var(--ff-mono);
+  font-size: 19px;
+  font-weight: 500;
+  margin-top: 3px;
+}
+
+.band-photo {
+  position: relative;
+  min-height: 230px;
+}
+
+.band-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Deterministic scrim — never rely on the photo being dark where text sits. */
+.band-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--asphalt) 0%, rgba(30, 33, 39, 0.55) 34%, rgba(30, 33, 39, 0) 78%);
+}
+
+/* ------------------------------------------------------------------- hero */
+
+.hero {
+  position: relative;
+  min-height: min(74vh, 620px);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  background: var(--slab);
+}
+
+.hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Scrim déterministe : les coasters se photographient à contre-jour sur un ciel
+   clair, on ne peut jamais parier sur une photo « sombre là où le texte tombe ». */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(22, 24, 28, 0.7) 0%, rgba(22, 24, 28, 0.28) 34%, rgba(22, 24, 28, 0.95) 100%),
+    linear-gradient(100deg, rgba(22, 24, 28, 0.8) 0%, rgba(22, 24, 28, 0.42) 42%, rgba(22, 24, 28, 0) 72%);
+}
+
+.hero-in {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-block: 44px;
+}
+
+.hero-rank {
+  font-stretch: 62%;
+  font-weight: 800;
+  font-size: clamp(90px, 16vw, 220px);
+  line-height: 0.74;
+  letter-spacing: -0.05em;
+  color: var(--signal);
+  margin-left: -0.06em;
+}
+
+.hero-name {
+  font-stretch: 118%;
+  font-weight: 700;
+  font-size: clamp(34px, 6vw, 76px);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+}
+
+/* -------------------------------------------------------------- the panel */
+
+.panel {
+  background: var(--asphalt);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 22px 24px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 2px;
+}
+
+.cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.cols-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+/* -------------------------------------------------------------- the duel */
+
+/* The screen nobody else can copy: the comparison the ranking is made of. */
+.duel {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.duel-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--asphalt);
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+.duel-card:hover,
+.duel-card:focus-visible {
+  border-color: var(--signal);
+}
+
+.duel-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+.duel-card figcaption,
+.duel-cap {
+  padding: 14px 16px 16px;
+}
+
+.duel-key {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  font-family: var(--ff-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  background: rgba(22, 24, 28, 0.82);
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+}
+
+.duel-vs {
+  align-self: center;
+  font-stretch: 62%;
+  font-weight: 800;
+  font-size: 32px;
+  color: var(--steel-dim);
+}
+
+/* --------------------------------------------------------------- ticker */
+
+.ticker {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ticker-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 16px;
+  background: var(--asphalt);
+  font-size: 13.5px;
+}
+
+.ticker-row:hover {
+  background: var(--slab);
+}
+
+.ticker-rank {
+  font-family: var(--ff-mono);
+  font-size: 13px;
+  color: var(--steel);
+}
+
+/* ------------------------------------------------------------------ misc */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--steel);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tag-on {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.foot {
+  border-top: 1px solid var(--line);
+  padding: 34px 0 60px;
+  color: var(--steel-dim);
+  font-size: 12.5px;
+}
+
+.note {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 14px;
+  color: var(--steel);
+  font-size: 12.5px;
+  max-width: 70ch;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 2px;
+  flex: none;
+}
+
+/* --------------------------------------------------------------- responsive */
+
+@media (max-width: 1080px) {
+  .cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .band {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .band-photo {
+    order: -1;
+    min-height: 190px;
+  }
+  .band-photo::after {
+    background: linear-gradient(180deg, rgba(30, 33, 39, 0.15) 0%, var(--asphalt) 96%);
+  }
+  .band-body {
+    padding: 22px 20px 26px;
+  }
+  .duel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .duel-vs {
+    justify-self: center;
+  }
+  .cols-2,
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail-search {
+    display: none;
+  }
+}
+
+/* Sous 760 px la barre passe sur deux étages : marque + actions, puis la
+   navigation sur toute la largeur. Un menu écrasé n'est pas un menu. */
+@media (max-width: 760px) {
+  .rail {
+    position: static;
+    height: auto;
+  }
+  .rail-in {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-block: 10px;
+  }
+  .brand {
+    flex: 1;
+  }
+  .rail-actions {
+    order: 1;
+  }
+  .who span {
+    display: none;
+  }
+  .nav {
+    order: 2;
+    width: 100%;
+    flex: 0 0 100%;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .nav a {
+    padding: 6px 10px 8px;
+  }
+  .filterbar {
+    top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .board .c-hide {
+    display: none;
+  }
+  .row-photo {
+    width: 64px;
+    height: 42px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

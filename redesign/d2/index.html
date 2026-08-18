@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carnet — Mon carnet · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Inclusive+Sans:ital,wght@0,300..700;1,300..700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  .frontpage { padding: clamp(34px, 5vw, 60px) 0 clamp(30px, 4vw, 46px); }
+  .frontpage-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: clamp(24px, 4vw, 56px); align-items: end; }
+  .bignum { font-family: var(--ff-display); font-weight: 800; font-size: clamp(66px, 11vw, 132px); line-height: .84; letter-spacing: -.04em; }
+  .feedline { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+  .feedline img.av { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--rule-2); }
+  @media (max-width: 860px) { .frontpage-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, masthead, foot, gauge, photo, tallPhoto, family, serial, longDate, year, stars, esc, num, avatar, HERO } from "./d2.js";
+import { riderView, HERO_USER_ID, activityFeed, topRanking } from "../assets/data.js";
+
+const d = await getData();
+const u = riderView(d, HERO_USER_ID);
+const taxo = await fetch(new URL("../../data/taxonomies.json", import.meta.url)).then((r) => r.json());
+
+const stat = (k) => u.stats?.[k] ?? null;
+const credits = Number(String(stat("coasters") || "0").replace(/\D/g, "")) || 0;
+const parksN = Number(String(stat("parks") || "0").replace(/\D/g, "")) || 0;
+const countries = Number(String(stat("countries") || "0").replace(/\D/g, "")) || 0;
+const [topDone, topTotal] = String(stat("World TOP 100") || "0/100").split("/").map(Number);
+
+/* Ce que l'on connaît de sa collection : ses notes et son top personnel. */
+const known = new Set([...u.ratings.map((r) => r.coasterId), ...u.topItems.map((c) => c.id)]);
+
+/* Les entrées datées, les plus récentes d'abord. */
+const entries = u.ratings
+  .filter((r) => r.coaster)
+  .map((r) => ({ ...r, y: year(r.riddenAt) }))
+  .sort((a, b) => (b.y || 0) - (a.y || 0));
+
+const byYear = new Map();
+for (const e of entries) if (e.y) byYear.set(e.y, (byYear.get(e.y) || 0) + 1);
+const season = [...byYear.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0]?.[0] || null;
+const lastSeason = entries.filter((e) => e.y === season);
+const latest = entries[0];
+
+/* Ce qu'il reste à faire dans le top 100 mondial. */
+const todo = topRanking(d, 100).filter((c) => !known.has(c.id)).slice(0, 8);
+
+const feed = activityFeed(d, 7);
+
+function ticket(e, withPhoto = false) {
+  const f = family(e.coaster);
+  return `
+<article class="ticket">
+  <div class="ticket-body">
+    ${withPhoto ? "" : ""}
+    <div class="cap cap-green">${longDate(e.riddenAt)}</div>
+    <div class="ticket-name" style="margin-top:6px">${esc(e.coaster.name)}</div>
+    <div class="ticket-meta">${esc(d.parkById.get(e.coaster.parkId)?.name || "")} · ${esc(e.coaster.country)}</div>
+    <div style="display:flex;gap:14px;align-items:center;margin-top:12px;flex-wrap:wrap">
+      <span class="fam fam-${f.key}">${f.label}</span>
+      ${e.coaster.year ? `<span class="mono dim" style="font-size:12px">${e.coaster.year}</span>` : ""}
+      ${d.rankById.get(e.coasterId) ? `<span class="mono dim" style="font-size:12px">#${d.rankById.get(e.coasterId)} mondial</span>` : ""}
+    </div>
+  </div>
+  <div class="ticket-stub">
+    <span class="cap" style="font-size:9px">Ma note</span>
+    <span class="ticket-score">${e.value.toFixed(1)}</span>
+    <span class="ticket-serial">${serial(u.id, e.coasterId, e.riddenAt)}</span>
+  </div>
+</article>`;
+}
+
+document.getElementById("app").innerHTML = `
+${masthead("home")}
+<main id="main">
+
+  <!-- --------------------------------------------------------- page de garde -->
+  <section class="frontpage">
+    <div class="wrap">
+      <div class="frontpage-grid">
+        <div>
+          <div class="cap cap-ticket">Carnet de ${esc(u.name)} · saison ${season || ""}</div>
+          <h1 style="margin-top:14px">Tu as fait<br>${num(credits)} coasters.</h1>
+          <p class="lede" style="margin-top:18px">
+            ${num(parksN)} parcs, ${num(countries)} pays, ${num(u.topItems.length)} coasters classés dans ton top.
+            Ce carnet est à toi : le classement mondial n'est qu'une des pages.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:24px">
+            <a class="btn btn-ticket" href="profile.html">Ouvrir ma collection</a>
+            <a class="btn btn-ghost" href="ranking.html">Voir ce qu'il me reste</a>
+          </div>
+        </div>
+
+        <div class="sheet">
+          <div class="cap" style="margin-bottom:16px">Complétion</div>
+          <div style="display:grid;gap:20px">
+            ${gauge("Top 100 mondial", topDone, topTotal, "les 100 meilleurs coasters du classement")}
+            ${gauge("Pays", countries, taxo.country.length, "pays où tu as au moins un credit", true)}
+            ${gauge("Parcs", parksN, d.parks.length, "parcs référencés dans la base", true)}
+          </div>
+          <hr class="rule" style="margin:20px 0 16px">
+          <p class="gauge-note" style="margin:0">
+            La complétion se mesure en couverture — pays, familles, jalons —
+            jamais au nombre de credits.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- dernière entrée -->
+  ${latest ? `
+  <section class="sect sect-alt" style="padding-top:34px">
+    <div class="wrap">
+      <div class="sect-head">
+        <div>
+          <div class="cap cap-ticket">La dernière page</div>
+          <h2 style="margin-top:8px">${esc(latest.coaster.name)}</h2>
+        </div>
+        <span class="mono dim" style="font-size:13px">${longDate(latest.riddenAt)}</span>
+      </div>
+      <div class="cols-2" style="align-items:start">
+        <img src="${photo(latest.coasterId)}" alt="" style="width:100%;aspect-ratio:16/10;object-fit:cover;border:1px solid var(--rule);border-radius:3px">
+        <div>
+          ${ticket(latest)}
+          <div class="sheet" style="margin-top:14px">
+            <div class="cap" style="margin-bottom:12px">Le carnet, en une ligne</div>
+            <p style="margin:0;font-size:17px">
+              ${d.rankById.get(latest.coasterId)
+                ? `${esc(latest.coaster.name)} entre dans ton carnet au n°${d.rankById.get(latest.coasterId)} mondial.`
+                : `${esc(latest.coaster.name)} n'est pas encore classé : ton avis pèsera d'autant plus.`}
+              ${esc(d.parkById.get(latest.coaster.parkId)?.name || "")} rejoint tes ${num(parksN)} parcs,
+              et ${esc(latest.coaster.country)} tes ${num(countries)} pays.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>` : ""}
+
+  <!-- ---------------------------------------------------------- cette saison -->
+  <section class="sect">
+    <div class="wrap">
+      <div class="sect-head">
+        <div>
+          <div class="cap">Saison ${season || ""}</div>
+          <h2 style="margin-top:8px">Tes entrées de l'année</h2>
+        </div>
+        <span class="mono dim" style="font-size:13px">${lastSeason.length} talons</span>
+      </div>
+      <div class="cols-2" style="gap:14px">
+        ${lastSeason.slice(0, 8).map((e) => ticket(e)).join("")}
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------- ce qu'il te reste -->
+  <section class="sect sect-alt">
+    <div class="wrap">
+      <div class="cols-2" style="align-items:start">
+        <div>
+          <div class="sect-head">
+            <div>
+              <div class="cap cap-green">Le jalon en cours</div>
+              <h2 style="margin-top:8px">Ce qu'il te reste</h2>
+            </div>
+          </div>
+          <p class="muted" style="margin-bottom:18px">
+            Les coasters du top 100 mondial qui ne sont pas encore dans ton carnet.
+            Une jauge qui se referme motive ; un compteur qui monte, non.
+          </p>
+          <div class="almanac">
+            ${todo.map((c) => {
+              const f = family(c);
+              return `
+            <div class="entry" data-done="false" style="grid-template-columns:34px 62px minmax(0,1fr) auto">
+              <span class="check">✓</span>
+              <span class="entry-rank">#${c.rank}</span>
+              <span style="min-width:0">
+                <span class="entry-name">${esc(c.name)}</span>
+                <span class="entry-sub">${esc(c.park?.name || "")} · ${esc(c.country)} · <span class="fam fam-${f.key}">${f.label}</span></span>
+              </span>
+              <span class="entry-score">${c.score.toFixed(1)}</span>
+            </div>`;
+            }).join("")}
+          </div>
+          <a class="btn btn-ghost btn-sm" href="ranking.html" style="margin-top:18px">Voir l'almanach complet</a>
+        </div>
+
+        <div>
+          <div class="sect-head">
+            <div>
+              <div class="cap">Communauté</div>
+              <h2 style="margin-top:8px">Dans les carnets des autres</h2>
+            </div>
+          </div>
+          <div>
+            ${feed.map((f) => `
+            <div class="feedline">
+              <img class="av" src="${avatar(f.user.name, 60)}" alt="">
+              <span style="min-width:0">
+                <span style="display:block;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                  <b>${esc(f.user.name)}</b> <span class="dim">a inscrit</span> <b>${esc(f.coaster.name)}</b>
+                </span>
+                <span class="entry-sub">${esc(f.park?.name || "")} · ${longDate(f.riddenAt)}</span>
+              </span>
+              <span class="mono" style="font-size:14px;color:var(--ticket);font-weight:700">${f.value.toFixed(1)}</span>
+            </div>`).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+${foot(`Credits, parcs, pays et couverture du top 100 sont les statistiques réelles publiées sur le profil.
+Les talons sont produits à partir des notes datées présentes dans l'extrait — 30 des 1 852 credits de ce
+rider — complétées par son top personnel de 72 coasters. Photographies : Unsplash.`)}
+`;
+</script>
+</body>
+</html>

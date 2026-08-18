@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Captain Coaster — trois directions de refonte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<style>
+/* L'index reste volontairement neutre : c'est un document de présentation,
+   pas une quatrième proposition de design. */
+:root {
+  --bg: #fbfaf8;
+  --surface: #ffffff;
+  --ink: #17181b;
+  --ink-2: #55595f;
+  --ink-3: #8b9098;
+  --rule: #e2e0dc;
+  --rule-2: #cfccc6;
+  --d1: #ff4d1f;
+  --d2: #c4362b;
+  --d3: #f3a154;
+  --shell: 1180px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131417; --surface: #1a1c20; --ink: #eceae5; --ink-2: #a8adb5;
+    --ink-3: #767c85; --rule: #292c31; --rule-2: #3a3e45;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif; font-size: 16px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--d1); outline-offset: 3px; }
+.wrap { max-width: var(--shell); margin-inline: auto; padding-inline: clamp(18px, 5vw, 36px); }
+
+.head { padding: clamp(48px, 8vw, 92px) 0 40px; border-bottom: 1px solid var(--rule); }
+.eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-3);
+}
+h1 {
+  font-stretch: 115%; font-weight: 700; letter-spacing: -.03em; line-height: 1.02;
+  font-size: clamp(34px, 6vw, 62px); margin: 16px 0 0; max-width: 18ch;
+}
+.lede { font-size: clamp(17px, 2vw, 20px); color: var(--ink-2); max-width: 62ch; margin: 22px 0 0; }
+
+h2 {
+  font-stretch: 115%; font-weight: 700; letter-spacing: -.02em;
+  font-size: clamp(22px, 3vw, 30px); margin: 0;
+}
+h3 { font-stretch: 112%; font-weight: 700; font-size: 18px; margin: 0; letter-spacing: -.01em; }
+p { margin: 0 0 1em; }
+.sect { padding: clamp(44px, 6vw, 72px) 0; border-bottom: 1px solid var(--rule); }
+.sect-lead { color: var(--ink-2); max-width: 66ch; margin-top: 14px; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 15px; }
+th, td { text-align: left; padding: 12px 14px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+td:first-child { font-weight: 600; width: 34%; }
+
+/* Fiche de direction */
+.dir { padding: clamp(40px, 6vw, 68px) 0; border-bottom: 1px solid var(--rule); }
+.dir-top { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: clamp(24px, 4vw, 56px); align-items: start; }
+.dir-num {
+  font-stretch: 62%; font-weight: 800; font-size: 15px; letter-spacing: .04em;
+  display: inline-flex; align-items: center; gap: 10px; color: var(--ink-3);
+}
+.dir-swatches { display: flex; gap: 4px; margin-top: 4px; }
+.dir-swatch { width: 26px; height: 26px; border-radius: 2px; border: 1px solid rgba(0,0,0,.12); }
+.dir-title { font-stretch: 118%; font-weight: 700; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.03em; margin: 12px 0 0; }
+.dir-thesis { font-size: clamp(17px, 2vw, 20px); color: var(--ink); max-width: 54ch; margin-top: 16px; }
+.dir-body { color: var(--ink-2); max-width: 58ch; margin-top: 14px; }
+
+.spec { border: 1px solid var(--rule); border-radius: 3px; background: var(--surface); padding: 20px 22px; }
+.spec dl { margin: 0; display: grid; gap: 15px; }
+.spec dt { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.spec dd { margin: 4px 0 0; font-size: 14.5px; }
+
+.screens { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 34px; }
+.screen {
+  display: block; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden;
+  background: var(--surface); text-decoration: none; transition: border-color .15s ease, transform .15s ease;
+}
+.screen:hover { border-color: var(--ink); transform: translateY(-2px); }
+.screen-shot { aspect-ratio: 2 / 1; background: var(--rule); object-fit: cover; object-position: top left; width: 100%; }
+.screen-cap { padding: 11px 13px 13px; }
+.screen-cap b { display: block; font-size: 14px; font-weight: 700; }
+.screen-cap span { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+
+.serves { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.pill {
+  font-size: 12.5px; padding: 5px 11px; border: 1px solid var(--rule-2); border-radius: 100px; color: var(--ink-2);
+}
+.pill-risk { border-style: dashed; }
+
+.cta {
+  display: inline-flex; align-items: center; gap: 9px; margin-top: 26px;
+  font-size: 14px; font-weight: 700; text-decoration: none;
+  padding: 11px 18px; border-radius: 3px; color: var(--bg); background: var(--ink);
+}
+.cta:hover { opacity: .88; }
+.cta-ghost { background: none; color: var(--ink); border: 1px solid var(--rule-2); }
+
+.foot { padding: 48px 0 80px; color: var(--ink-3); font-size: 14px; }
+.foot a { color: var(--ink-2); }
+
+@media (max-width: 900px) {
+  .dir-top { grid-template-columns: minmax(0, 1fr); }
+  .screens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .screens { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="head">
+  <div class="wrap">
+    <div class="eyebrow">Captain Coaster · exploration de refonte</div>
+    <h1>Trois façons de raconter le même site</h1>
+    <p class="lede">
+      Captain Coaster tient une base que personne d'autre n'a : un classement mondial produit
+      par des duels entre coasters, alimenté par 25 000 riders. L'interface, elle, est un
+      template d'administration de 2016. Voici trois directions pour rattraper cet écart —
+      trois options ouvertes, pas une recommandation unique.
+    </p>
+    <a class="cta" href="#d1">Voir la première direction</a>
+    <a class="cta cta-ghost" href="#avant" style="margin-left:10px">Voir le site actuel</a>
+  </div>
+</header>
+
+<section class="sect">
+  <div class="wrap">
+    <h2>Ce qui a été constaté sur l'existant</h2>
+    <p class="sect-lead">
+      Le site actuel a été reproduit à l'identique en local, écran par écran, pour servir de
+      point de comparaison. Trois problèmes structurels en ressortent — ils sont communs aux
+      trois directions, seule la réponse change.
+    </p>
+    <table>
+      <thead><tr><th>Constat</th><th>Conséquence</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Le mécanisme signature est invisible</td>
+          <td>Le classement repose sur des duels, mais ils sont déduits des notes et jamais joués.
+          Le seul dispositif que ni RCDB ni Coaster-Count ne peuvent copier ne se voit sur aucun écran.</td>
+        </tr>
+        <tr>
+          <td>Le vocabulaire de sensation n'est pas exploité</td>
+          <td>Chaque avis est déjà étiqueté (Airtimes, Ejectors, Launch, Intensity, Theming, Discomfort).
+          Cette matière n'est agrégée nulle part, alors qu'elle est unique au site.</td>
+        </tr>
+        <tr>
+          <td>Une interface de back-office pour un sujet spectaculaire</td>
+          <td>Tout est en 13 px, les photos sont des vignettes de 96 px, et score, rang, distribution
+          et nombre de duels ont exactement le même poids visuel. Rien ne guide le regard.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================== L'EXISTANT, EN LIGNE -->
+<section class="dir" id="avant" style="background:rgba(0,0,0,.02)">
+  <div class="wrap">
+    <div class="dir-top">
+      <div>
+        <div class="dir-num">Point de comparaison</div>
+        <h2 class="dir-title">Le site actuel</h2>
+        <p class="dir-thesis">
+          Le site d'aujourd'hui, reproduit à l'identique et navigable ici même.
+          C'est le « avant » : mêmes pages, mêmes libellés, mêmes interactions, mêmes URLs.
+        </p>
+        <div class="dir-body">
+          <p>Il ne s'agit pas de captures d'écran mais d'une réplique fonctionnelle : les filtres
+          du classement, la carte, les tops, la notation demi-étoile et l'espace connecté
+          fonctionnent. C'est ce qui permet de comparer chaque direction écran par écran plutôt
+          que sur une impression générale.</p>
+          <p>Deux écarts assumés : les photos sont des substituts libres de droits, et
+          l'authentification est simulée — n'importe quelle adresse connecte, pour rendre
+          les écrans membres visitables.</p>
+        </div>
+        <div class="serves">
+          <span class="pill">Bootstrap 3, template d'administration</span>
+          <span class="pill">2 906 coasters · 1 857 parcs · 1 756 avis</span>
+          <span class="pill">4 langues</span>
+        </div>
+      </div>
+
+      <div class="spec">
+        <dl>
+          <div>
+            <dt>Palette actuelle</dt>
+            <dd>
+              <div class="dir-swatches">
+                <span class="dir-swatch" style="background:#37474f" title="#37474F navbar"></span>
+                <span class="dir-swatch" style="background:#263238" title="#263238 sidebar"></span>
+                <span class="dir-swatch" style="background:#f5f5f5" title="#F5F5F5 fond"></span>
+                <span class="dir-swatch" style="background:#26a69a" title="#26A69A actif"></span>
+                <span class="dir-swatch" style="background:#2196f3" title="#2196F3 liens"></span>
+              </div>
+            </dd>
+          </div>
+          <div><dt>Typographie</dt><dd>Roboto, 13 px partout</dd></div>
+          <div><dt>Ce qui bloque</dt><dd>Aucune hiérarchie visuelle, photos réduites à des vignettes, filtres en sidebar administrative</dd></div>
+          <div><dt>Ce qui est solide</dt><dd>La base de données, le vocabulaire des avis, et le système de duels — tout ce que les trois directions cherchent à mettre en valeur</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="screens">
+      <a class="screen" href="en/">
+        <img class="screen-shot" src="redesign/assets/img/shots/d0-index.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Accueil</b><span>Le site actuel, page d'accueil</span></span>
+      </a>
+      <a class="screen" href="en/ranking/">
+        <img class="screen-shot" src="redesign/assets/img/shots/d0-ranking.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Classement</b><span>Sidebar de filtres, liste paginée</span></span>
+      </a>
+      <a class="screen" href="en/coasters/2268/steel-vengeance-cedar-point">
+        <img class="screen-shot" src="redesign/assets/img/shots/d0-coaster.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Fiche coaster</b><span>Steel Vengeance, le même qu'ailleurs</span></span>
+      </a>
+      <a class="screen" href="en/map/">
+        <img class="screen-shot" src="redesign/assets/img/shots/d0-map.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Carte</b><span>Un marqueur par parc</span></span>
+      </a>
+      <a class="screen" href="en/users/denis-b">
+        <img class="screen-shot" src="redesign/assets/img/shots/d0-profile.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Profil rider</b><span>Denis B, le même qu'ailleurs</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================================== D1 -->
+<section class="dir" id="d1">
+  <div class="wrap">
+    <div class="dir-top">
+      <div>
+        <div class="dir-num">Direction 1</div>
+        <h2 class="dir-title">Circuit</h2>
+        <p class="dir-thesis">
+          Captain Coaster est un championnat du monde arbitré par 25 000 juges.
+          Le site doit se comporter comme une propriété sportive, pas comme une base de données.
+        </p>
+        <div class="dir-body">
+          <p>Le duel devient jouable : deux photos, une question, les flèches du clavier — et chaque
+          réponse alimente directement le classement. Chaque fiche affiche son palmarès face à ses
+          rivaux nommés. Chaque caractéristique est doublée d'un percentile contre un pool comparable,
+          parce que « 62 m » ne veut rien dire tout seul.</p>
+          <p>Visuellement : base graphite désaturée, un seul accent chaud utilisé comme ponctuation,
+          et des chiffres énormes traités comme de l'information. Le langage de référence est celui
+          des propriétés sportives — une famille neutre pour le labeur, un cut extra-étroit réservé
+          aux rangs et aux scores.</p>
+        </div>
+        <div class="serves">
+          <span class="pill">Sert l'autorité et la contribution experte</span>
+          <span class="pill">Pour l'enthousiaste qui compte ses credits</span>
+          <span class="pill pill-risk">Risque assumé : froideur</span>
+        </div>
+      </div>
+
+      <div class="spec">
+        <dl>
+          <div>
+            <dt>Palette</dt>
+            <dd>
+              <div class="dir-swatches">
+                <span class="dir-swatch" style="background:#16181c" title="#16181C graphite"></span>
+                <span class="dir-swatch" style="background:#262a31" title="#262A31 surfaces"></span>
+                <span class="dir-swatch" style="background:#eceae5" title="#ECEAE5 craie"></span>
+                <span class="dir-swatch" style="background:#ff4d1f" title="#FF4D1F signal"></span>
+                <span class="dir-swatch" style="background:#8a93a0" title="#8A93A0 acier"></span>
+              </div>
+            </dd>
+          </div>
+          <div><dt>Typographie</dt><dd>Archivo variable (axe de chasse 62 → 125) pour les rangs et les titres · Geist Mono pour les chiffres tabulaires</dd></div>
+          <div><dt>Signature</dt><dd>Le numéro de rang en chasse extra-étroite, à fond perdu, et la barre de duel face à face</dd></div>
+          <div><dt>Pari UX</dt><dd>Assumer la densité et l'outiller : filtres en chips, « aller à mon rang », duel jouable en dix secondes</dd></div>
+          <div><dt>Polarité</dt><dd>Sombre. Une version claire serait à produire en phase de production.</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="screens">
+      <a class="screen" href="redesign/d1/index.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d1-index.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Accueil</b><span>Le championnat en direct, duel du jour</span></span>
+      </a>
+      <a class="screen" href="redesign/d1/ranking.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d1-ranking.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Classement</b><span>Podium éditorial puis table dense</span></span>
+      </a>
+      <a class="screen" href="redesign/d1/coaster.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d1-coaster.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Fiche coaster</b><span>Palmarès en duels, percentiles</span></span>
+      </a>
+      <a class="screen" href="redesign/d1/map.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d1-map.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Carte</b><span>Où sont les meilleurs</span></span>
+      </a>
+      <a class="screen" href="redesign/d1/profile.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d1-profile.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Profil rider</b><span>Palmarès et verdicts à contre-courant</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================================== D2 -->
+<section class="dir" id="d2">
+  <div class="wrap">
+    <div class="dir-top">
+      <div>
+        <div class="dir-num">Direction 2</div>
+        <h2 class="dir-title">Carnet de credits</h2>
+        <p class="dir-thesis">
+          Ce que les riders gardent vraiment, c'est leur log. Le site devrait s'ouvrir sur
+          ta collection, pas sur un tableau mondial.
+        </p>
+        <div class="dir-body">
+          <p>Le profil devient la page d'accueil du membre. Chaque credit est un ticket d'entrée
+          numéroté — date, parc, note, numéro de série. La progression se mesure en jauges de
+          complétion, jamais en compteur de credits : récompenser le volume produit exactement
+          l'effet inverse de celui recherché.</p>
+          <p>Le classement devient un almanach à cocher, la carte un passeport tamponné, et un
+          jeton de couleur par famille de coaster donne à la collection une taxonomie lisible
+          d'un coup d'œil. Le vocabulaire visuel vient du papier des parcs — billetterie, plan,
+          tampon — et non de l'éditorial générique.</p>
+        </div>
+        <div class="serves">
+          <span class="pill">Sert la rétention et la régularité</span>
+          <span class="pill">Pour le membre qui tient son log</span>
+          <span class="pill pill-risk">Risque assumé : le pastiche</span>
+        </div>
+      </div>
+      <div class="spec">
+        <dl>
+          <div>
+            <dt>Palette</dt>
+            <dd>
+              <div class="dir-swatches">
+                <span class="dir-swatch" style="background:#ede9de" title="#EDE9DE papier"></span>
+                <span class="dir-swatch" style="background:#1c2b26" title="#1C2B26 encre"></span>
+                <span class="dir-swatch" style="background:#2f6b4f" title="#2F6B4F vert de plan"></span>
+                <span class="dir-swatch" style="background:#c4362b" title="#C4362B rouge billet"></span>
+                <span class="dir-swatch" style="background:#b08a3e" title="#B08A3E laiton"></span>
+              </div>
+            </dd>
+          </div>
+          <div><dt>Typographie</dt><dd>Bricolage Grotesque en display · Inclusive Sans pour le texte · Courier Prime pour les numéros de série</dd></div>
+          <div><dt>Signature</dt><dd>Le ticket perforé numéroté, et le tampon de passeport par pays</dd></div>
+          <div><dt>Pari UX</dt><dd>L'état fait / à faire partout, la complétion comme moteur, un récap annuel gratuit</dd></div>
+          <div><dt>Polarité</dt><dd>Claire. C'est la direction la plus solide en accessibilité des trois.</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="screens">
+      <a class="screen" href="redesign/d2/index.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d2-index.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Mon carnet</b><span>La collection en page d'accueil</span></span>
+      </a>
+      <a class="screen" href="redesign/d2/ranking.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d2-ranking.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>L'almanach</b><span>Le classement en liste à cocher</span></span>
+      </a>
+      <a class="screen" href="redesign/d2/coaster.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d2-coaster.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Fiche coaster</b><span>Ta ligne dans le carnet</span></span>
+      </a>
+      <a class="screen" href="redesign/d2/map.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d2-map.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Passeport</b><span>Les pays tamponnés</span></span>
+      </a>
+      <a class="screen" href="redesign/d2/profile.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d2-profile.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Ma collection</b><span>Mur de credits et récap annuel</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ==================================================================== D3 -->
+<section class="dir" id="d3">
+  <div class="wrap">
+    <div class="dir-top">
+      <div>
+        <div class="dir-num">Direction 3</div>
+        <h2 class="dir-title">Sensation</h2>
+        <p class="dir-thesis">
+          Le rôle du site est de faire ressentir le ride avant de le faire. La photo est
+          l'interface, et la donnée que personne ne visualise, c'est le tracé.
+        </p>
+        <div class="dir-body">
+          <p>La fiche coaster s'ouvre sur une courbe dessinée à partir des chiffres réels, que
+          l'on parcourt en faisant glisser : la vitesse en chaque point découle de la hauteur, par
+          conservation de l'énergie. Et les étiquettes des avis sont enfin agrégées en un profil
+          de sensation — le contenu le plus différenciant du site, affiché nulle part aujourd'hui.</p>
+          <p>Le classement devient un mur d'images où chaque vignette porte sa silhouette de
+          parcours, et la carte devient un planificateur de voyage plutôt qu'un localisateur.
+          Registre visuel : parc de nuit, chrome quasi nul, photo à fond perdu.</p>
+        </div>
+        <div class="serves">
+          <span class="pill">Sert l'acquisition et le partage</span>
+          <span class="pill">Pour le visiteur qui découvre</span>
+          <span class="pill pill-risk">Risque assumé : coût d'exploitation</span>
+        </div>
+      </div>
+      <div class="spec">
+        <dl>
+          <div>
+            <dt>Palette</dt>
+            <dd>
+              <div class="dir-swatches">
+                <span class="dir-swatch" style="background:#171c2e" title="#171C2E nuit"></span>
+                <span class="dir-swatch" style="background:#232a44" title="#232A44 crépuscule"></span>
+                <span class="dir-swatch" style="background:#e8e6ef" title="#E8E6EF brume"></span>
+                <span class="dir-swatch" style="background:#f3a154" title="#F3A154 ambre"></span>
+                <span class="dir-swatch" style="background:#7c85a3" title="#7C85A3 atténué"></span>
+              </div>
+            </dd>
+          </div>
+          <div><dt>Typographie</dt><dd>Funnel Display pour les titres · Funnel Sans pour le texte et les chiffres</dd></div>
+          <div><dt>Signature</dt><dd>Le tracé, dérivé des caractéristiques réelles et parcourable</dd></div>
+          <div><dt>Pari UX</dt><dd>La découverte avant la comparaison : filtrer par sensation, pas par constructeur</dd></div>
+          <div><dt>Polarité</dt><dd>Sombre. La plus exigeante des trois en performance et en contraste.</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="screens">
+      <a class="screen" href="redesign/d3/index.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d3-index.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Découvrir</b><span>Entrer par la sensation</span></span>
+      </a>
+      <a class="screen" href="redesign/d3/ranking.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d3-ranking.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Le mur</b><span>Le classement montré, pas listé</span></span>
+      </a>
+      <a class="screen" href="redesign/d3/coaster.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d3-coaster.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Fiche coaster</b><span>Le tracé parcourable</span></span>
+      </a>
+      <a class="screen" href="redesign/d3/map.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d3-map.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Carte</b><span>Planificateur de voyage</span></span>
+      </a>
+      <a class="screen" href="redesign/d3/profile.html">
+        <img class="screen-shot" src="redesign/assets/img/shots/d3-profile.jpg" alt="" loading="lazy">
+        <span class="screen-cap"><b>Mon empreinte</b><span>Goût, géographie, silhouettes</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="wrap">
+    <h2>Les trois, en une grille</h2>
+    <p class="sect-lead">
+      Elles ne diffèrent pas par la palette mais par l'écran qui porte le produit,
+      et par ce qu'on attend d'un visiteur.
+    </p>
+    <table>
+      <thead>
+        <tr><th></th><th>Circuit</th><th>Carnet</th><th>Sensation</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Le site est…</td><td>une compétition</td><td>une collection</td><td>une sensation</td></tr>
+        <tr><td>Écran qui porte le produit</td><td>le classement</td><td>le profil</td><td>la fiche coaster</td></tr>
+        <tr><td>Objet signature</td><td>le numéro de rang</td><td>le ticket perforé</td><td>le tracé</td></tr>
+        <tr><td>Ce qui domine l'écran</td><td>les chiffres</td><td>le papier et l'état fait / à faire</td><td>la photo</td></tr>
+        <tr><td>Rapport à la densité</td><td>assumée et outillée</td><td>organisée en checklist</td><td>évitée au profit de l'image</td></tr>
+        <tr><td>Objectif servi</td><td>autorité et contribution experte</td><td>rétention et régularité</td><td>acquisition et partage</td></tr>
+        <tr><td>Risque principal</td><td>froideur</td><td>pastiche</td><td>coût d'exploitation</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="sect">
+  <div class="wrap">
+    <h2>Comment lire ces maquettes</h2>
+    <p class="sect-lead">
+      Elles ne sont pas des images : ce sont des pages qui tournent sur le jeu de données réel
+      du site — 2 906 coasters, 1 857 parcs, 1 756 avis, 180 riders. Les filtres filtrent
+      vraiment, la carte affiche vraiment 1 786 parcs, le duel se joue. C'est le seul moyen de
+      juger la densité, qui est le vrai sujet.
+    </p>
+    <table>
+      <tbody>
+        <tr><td>Photographies</td><td>Substituts libres de droits (Unsplash), à la place des photos des contributeurs.
+          Les crédits affichés sur les fiches sont ceux des vrais auteurs relevés sur le site.
+          <a href="redesign/assets/img/CREDITS.md">Voir le détail des licences</a>.</td></tr>
+        <tr><td>Appels réseau</td><td>Aucune requête vers les serveurs de Captain Coaster. Les tuiles de carte
+          viennent de CARTO, comme sur le site actuel.</td></tr>
+        <tr><td>Palmarès en duels</td><td>Dérivé de la définition publiée par Captain Coaster : le score est la
+          proportion de duels gagnés. Rien n'est simulé.</td></tr>
+        <tr><td>Point de comparaison</td><td>Le site actuel est reproduit à l'identique et reste ouvrable
+          à côté, aux mêmes URLs.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap">
+    Document d'exploration — <a href="redesign/DIRECTIONS.md">argumentaire détaillé</a> ·
+    <a href="redesign/RESEARCH.md">recherche et sources</a> ·
+    <a href="en/">site actuel</a>
+  </div>
+</footer>
+
+</body>
+</html>

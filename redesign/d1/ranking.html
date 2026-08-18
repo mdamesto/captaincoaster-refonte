@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit — Classement mondial · Captain Coaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Geist+Mono:wght@300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* Barre de filtres : le remplacement de la sidebar administrative. */
+  .filterbar {
+    position: sticky;
+    top: var(--bar-h);
+    z-index: 30;
+    background: rgba(22, 24, 28, 0.96);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: saturate(140%) blur(10px);
+  }
+  .filterbar-in { display: flex; align-items: center; gap: 10px; padding: 12px 0; flex-wrap: wrap; }
+  .facet { position: relative; }
+  .facet-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 5;
+    min-width: 250px; max-height: 340px; overflow-y: auto;
+    background: var(--asphalt); border: 1px solid var(--line-strong); border-radius: 2px;
+    padding: 6px; box-shadow: 0 18px 40px rgba(0,0,0,.5);
+  }
+  .facet-menu[hidden] { display: none; }
+  .facet-opt {
+    display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 7px 10px; border-radius: 2px; font-size: 13px; text-align: left;
+  }
+  .facet-opt:hover { background: var(--slab); }
+  .facet-opt[aria-selected="true"] { color: var(--signal); }
+  .facet-opt .count { font-family: var(--ff-mono); font-size: 11px; color: var(--steel); }
+  .jump {
+    display: flex; align-items: center; gap: 8px; margin-left: auto;
+    font-family: var(--ff-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--steel);
+  }
+  .jump input {
+    width: 76px; height: 32px; padding: 0 10px;
+    background: var(--asphalt); border: 1px solid var(--line-strong); border-radius: 2px;
+    color: var(--chalk); font-family: var(--ff-mono); font-size: 13px; letter-spacing: 0;
+  }
+  .pager { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 34px 0 10px; }
+  .pager button {
+    min-width: 36px; height: 36px; padding: 0 10px; border: 1px solid var(--line);
+    border-radius: 2px; font-family: var(--ff-mono); font-size: 13px; color: var(--steel);
+  }
+  .pager button:hover { border-color: var(--chalk); color: var(--chalk); }
+  .pager button[aria-current="true"] { background: var(--signal); border-color: var(--signal); color: #12100f; }
+  .pager span { color: var(--steel-dim); padding: 0 4px; }
+  .ridden { border-color: var(--signal); color: var(--signal); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { getData, rail, foot, duelBar, duelRecord, photo, esc, num } from "./d1.js";
+
+const d = await getData();
+const field = d.ranking.length;
+const all = d.ranking;
+const PER = 25;
+
+/* Ancrage personnel : ce que le rider connecté a déjà fait. */
+const mine = new Set((d.userRatings["6315"] || []).map((r) => r.coasterId));
+
+/* ------------------------------------------------------------------ facettes */
+
+function tally(key, fn) {
+  const m = new Map();
+  for (const c of all) {
+    const v = fn(c);
+    if (v === null || v === undefined || v === "") continue;
+    m.set(v, (m.get(v) || 0) + 1);
+  }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+const FACETS = [
+  { key: "country", label: "Pays", get: (c) => c.country, opts: tally("country", (c) => c.country) },
+  { key: "manufacturer", label: "Constructeur", get: (c) => c.manufacturer, opts: tally("m", (c) => c.manufacturer) },
+  {
+    key: "decade",
+    label: "Décennie",
+    get: (c) => (c.year ? `${Math.floor(c.year / 10) * 10}s` : null),
+    opts: tally("d", (c) => (c.year ? `${Math.floor(c.year / 10) * 10}s` : null)).sort((a, b) => b[0].localeCompare(a[0])),
+  },
+  {
+    key: "material",
+    label: "Matériau",
+    get: (c) => c.materialType,
+    opts: tally("mat", (c) => c.materialType),
+  },
+];
+
+const state = { filters: {}, page: 1, onlyMine: false };
+
+function matches(c) {
+  for (const f of FACETS) {
+    const want = state.filters[f.key];
+    if (want && f.get(c) !== want) return false;
+  }
+  if (state.onlyMine && !mine.has(c.id)) return false;
+  return true;
+}
+
+/* -------------------------------------------------------------------- rendu */
+
+const app = document.getElementById("app");
+app.innerHTML = `
+${rail("ranking")}
+<main id="main">
+  <div class="wrap-wide">
+    <div class="phead">
+      <div class="phead-top">
+        <div>
+          <div class="label label-signal">Saison en cours</div>
+          <h1 style="margin-top:10px">Classement mondial</h1>
+          <p>Chaque coaster affronte tous les autres. Le score est la proportion de duels
+          gagnés face aux ${num(field - 1)} concurrents classés — pas une moyenne d'étoiles.</p>
+        </div>
+        <a class="btn btn-signal" href="index.html#duel">Jouer un duel</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="filterbar">
+    <div class="wrap-wide filterbar-in" id="fbar"></div>
+  </div>
+
+  <div class="wrap-wide">
+    <section class="sect" style="padding-top:30px">
+      <div id="podium"></div>
+      <div id="tablewrap" style="margin-top:34px"></div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </div>
+</main>
+${foot(`Palmarès en duels dérivé de la définition publiée par Captain Coaster. « Fait » s'appuie sur
+les notes réelles du rider affiché. Photographies : Unsplash.`)}
+`;
+
+const fbar = document.getElementById("fbar");
+const podium = document.getElementById("podium");
+const tablewrap = document.getElementById("tablewrap");
+const pager = document.getElementById("pager");
+
+function drawBar(count) {
+  const active = Object.entries(state.filters).filter(([, v]) => v);
+  fbar.innerHTML = `
+${FACETS.map((f) => `
+  <div class="facet" data-facet="${f.key}">
+    <button class="chip" aria-expanded="false" aria-pressed="${state.filters[f.key] ? "true" : "false"}">
+      ${state.filters[f.key] ? esc(state.filters[f.key]) : f.label}
+      <span class="count">${state.filters[f.key] ? "×" : "▾"}</span>
+    </button>
+    <div class="facet-menu" hidden>
+      ${f.opts.slice(0, 40).map(([v, n]) => `
+        <button class="facet-opt" data-val="${esc(v)}" aria-selected="${state.filters[f.key] === v}">
+          <span>${esc(v)}</span><span class="count">${num(n)}</span>
+        </button>`).join("")}
+    </div>
+  </div>`).join("")}
+
+<button class="chip${state.onlyMine ? "" : ""}" id="mine-toggle" aria-pressed="${state.onlyMine}">
+  Ceux que j'ai faits <span class="count">${mine.size}</span>
+</button>
+
+${active.length || state.onlyMine ? `<button class="chip chip-clear" id="clear">Tout effacer</button>` : ""}
+
+<div class="jump">
+  <span aria-live="polite" style="color:var(--chalk)">${num(count)} coasters</span>
+  <label for="jump-in">Aller au rang</label>
+  <input id="jump-in" type="number" min="1" max="${field}" placeholder="1">
+</div>`;
+}
+
+function bandFor(c) {
+  const rec = duelRecord(c.score, field);
+  return `
+<article class="band band-${c.rank}">
+  <div class="band-body">
+    <div>
+      <div class="band-rank">${String(c.rank).padStart(2, "0")}</div>
+      <a href="coaster.html"><h2 class="band-name" style="margin-top:12px">${esc(c.name)}</h2></a>
+      <div class="band-meta">${esc(c.park?.name || "")} · ${esc(c.country)} · ${esc(c.manufacturer || "—")}${c.year ? ` · ${c.year}` : ""}</div>
+    </div>
+    <div class="band-stats">
+      <div class="band-stat"><div class="label">Score</div><b style="color:var(--signal);font-size:26px">${c.score.toFixed(1)}</b></div>
+      <div class="band-stat"><div class="label">Hauteur</div><b>${c.heightM ? c.heightM + " m" : "—"}</b></div>
+      <div class="band-stat"><div class="label">Vitesse</div><b>${c.speedKmh ? c.speedKmh + " km/h" : "—"}</b></div>
+      <div class="band-stat"><div class="label">Inversions</div><b>${c.inversions ?? "—"}</b></div>
+      <div class="band-stat" style="flex:1;min-width:190px">
+        <div class="label" style="margin-bottom:6px">Duels</div>${duelBar(rec)}
+      </div>
+    </div>
+  </div>
+  <div class="band-photo"><img src="${photo(c.id)}" alt="" width="800" height="500" loading="lazy"></div>
+</article>`;
+}
+
+function rowFor(c) {
+  const rec = duelRecord(c.score, field);
+  const pct = ((rec.won / rec.opponents) * 100).toFixed(1);
+  return `
+<tr>
+  <td class="c-rank">
+    <div class="rank-cell"><span class="rank-n">${c.rank}</span></div>
+  </td>
+  <td style="width:104px"><img class="row-photo" src="${photo(c.id)}" alt="" loading="lazy" width="92" height="56"></td>
+  <td>
+    <a href="coaster.html"><div class="row-name">${esc(c.name)}</div></a>
+    <div class="row-sub">${esc(c.park?.name || "")} · ${esc(c.country)}</div>
+  </td>
+  <td class="c-hide" style="width:186px">
+    <span class="tag">${esc(c.manufacturer || "—")}</span>
+  </td>
+  <td class="c-hide c-num" style="width:66px">${c.year || "—"}</td>
+  <td class="c-hide c-num" style="width:72px">${c.heightM ? c.heightM + " m" : "—"}</td>
+  <td class="c-hide c-num" style="width:96px">${c.speedKmh ? c.speedKmh + " km/h" : "—"}</td>
+  <td class="c-hide" style="width:170px">${duelBar(rec)}</td>
+  <td class="c-num" style="width:96px"><span class="row-score">${c.score.toFixed(1)}</span></td>
+  <td style="width:70px;text-align:right">${mine.has(c.id) ? `<span class="tag ridden">Fait</span>` : ""}</td>
+</tr>`;
+}
+
+function drawPager(pages) {
+  if (pages <= 1) { pager.innerHTML = ""; return; }
+  const out = [];
+  const push = (v) => { if (!out.includes(v)) out.push(v); };
+  push(1);
+  for (let i = state.page - 2; i <= state.page + 2; i++) if (i > 1 && i < pages) push(i);
+  push(pages);
+  const sorted = out.sort((a, b) => a - b);
+  let html = `<button data-page="${Math.max(1, state.page - 1)}">Précédent</button>`;
+  sorted.forEach((v, i) => {
+    if (i > 0 && v - sorted[i - 1] > 1) html += `<span>…</span>`;
+    html += `<button data-page="${v}" aria-current="${v === state.page}">${v}</button>`;
+  });
+  html += `<button data-page="${Math.min(pages, state.page + 1)}">Suivant</button>`;
+  pager.innerHTML = html;
+}
+
+function render() {
+  const list = all.filter(matches);
+  const pages = Math.max(1, Math.ceil(list.length / PER));
+  state.page = Math.min(state.page, pages);
+  drawBar(list.length);
+
+  const isDefault = !Object.values(state.filters).some(Boolean) && !state.onlyMine && state.page === 1;
+  const slice = list.slice((state.page - 1) * PER, state.page * PER);
+
+  if (isDefault) {
+    podium.innerHTML = `<div class="podium">${slice.slice(0, 3).map(bandFor).join("")}</div>`;
+    tablewrap.innerHTML = table(slice.slice(3));
+  } else {
+    podium.innerHTML = "";
+    tablewrap.innerHTML = list.length ? table(slice) : `<p class="muted" style="padding:40px 0">Aucun coaster ne correspond à ces filtres.</p>`;
+  }
+  drawPager(pages);
+}
+
+function table(rows) {
+  return `
+<table class="board">
+  <thead>
+    <tr>
+      <th class="c-rank">Rang</th><th></th><th>Coaster</th>
+      <th class="c-hide">Constructeur</th>
+      <th class="c-hide" style="text-align:right">Année</th>
+      <th class="c-hide" style="text-align:right">Hauteur</th>
+      <th class="c-hide" style="text-align:right">Vitesse</th>
+      <th class="c-hide">Duels gagnés / perdus</th>
+      <th style="text-align:right">Score</th><th></th>
+    </tr>
+  </thead>
+  <tbody>${rows.map(rowFor).join("")}</tbody>
+</table>`;
+}
+
+/* ------------------------------------------------------------- interactions */
+
+fbar.addEventListener("click", (e) => {
+  const opt = e.target.closest(".facet-opt");
+  if (opt) {
+    const key = opt.closest("[data-facet]").dataset.facet;
+    state.filters[key] = state.filters[key] === opt.dataset.val ? null : opt.dataset.val;
+    state.page = 1;
+    render();
+    return;
+  }
+  const chip = e.target.closest(".facet .chip");
+  if (chip) {
+    const wrap = chip.closest("[data-facet]");
+    const key = wrap.dataset.facet;
+    if (state.filters[key]) { state.filters[key] = null; state.page = 1; render(); return; }
+    const menu = wrap.querySelector(".facet-menu");
+    const open = !menu.hidden;
+    fbar.querySelectorAll(".facet-menu").forEach((m) => (m.hidden = true));
+    fbar.querySelectorAll(".facet .chip").forEach((b) => b.setAttribute("aria-expanded", "false"));
+    menu.hidden = open;
+    chip.setAttribute("aria-expanded", String(!open));
+    return;
+  }
+  if (e.target.closest("#mine-toggle")) { state.onlyMine = !state.onlyMine; state.page = 1; render(); return; }
+  if (e.target.closest("#clear")) { state.filters = {}; state.onlyMine = false; state.page = 1; render(); }
+});
+
+fbar.addEventListener("change", (e) => {
+  if (e.target.id !== "jump-in") return;
+  const rank = Number(e.target.value);
+  if (!rank) return;
+  state.filters = {}; state.onlyMine = false;
+  state.page = Math.max(1, Math.ceil(rank / PER));
+  render();
+  window.scrollTo({ top: 300, behavior: "smooth" });
+});
+
+pager.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-page]");
+  if (!b) return;
+  state.page = Number(b.dataset.page);
+  render();
+  window.scrollTo({ top: 220, behavior: "smooth" });
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".facet")) fbar.querySelectorAll(".facet-menu").forEach((m) => (m.hidden = true));
+});
+
+render();
+</script>
+</body>
+</html>
